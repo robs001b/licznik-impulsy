@@ -24,12 +24,28 @@
   </section>
   <p id="status" class="status">Wybierz "Start kamery" i ustaw telefon nieruchomo przed licznikiem.</p>
 
-  <section class="camwrap">
+   <div id="stick" class="stick">
     <div id="cam" class="cam">
       <video id="video" playsinline muted autoplay></video>
       <canvas id="overlay"></canvas>
       <div id="camHint" class="camhint">Brak obrazu</div>
     </div>
+    <div class="resbar" id="resbar">
+      <div class="rb k0b">
+        <div class="rbv"><span class="rbl">P</span> <b id="bpInst">-</b> <small>kW</small><i class="flash" id="bfl0"></i></div>
+        <div class="rbs">śr. <b id="bpAvg">-</b> · T <b id="bpT">-</b></div>
+        <div class="rbs">od imp. <b id="bpSince">-</b> · <b id="bpCnt">0</b> imp.</div>
+      </div>
+      <div class="rb k1b">
+        <div class="rbv"><span class="rbl">Q</span> <b id="bqInst">-</b> <small>kvar</small><i class="flash" id="bfl1"></i></div>
+        <div class="rbs">śr. <b id="bqAvg">-</b> · T <b id="bqT">-</b></div>
+        <div class="rbs">od imp. <b id="bqSince">-</b> · <b id="bqCnt">0</b> imp.</div>
+      </div>
+      <div class="rbfoot">cos φ <b id="bCos">-</b> · S <b id="bS">-</b> kVA<span id="bWarn" class="warn"></span></div>
+    </div>
+   </div>
+  <section class="camwrap">
+    <label class="chk pin"><input type="checkbox" id="pin"> Przypnij podgląd i wyniki przy przewijaniu</label>
     <div class="roibar">
       <button id="btnFind" class="find">Znajdź diody</button>
     </div>
@@ -50,6 +66,7 @@
   </section>
 
   <section class="cards">
+    <h2 class="cardsh">Szczegóły</h2>
     <div class="card big k0b">
       <div class="lbl">Moc czynna P</div>
       <div class="val"><span id="pInst">-</span> <small>kW</small></div>

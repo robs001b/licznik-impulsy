@@ -11,6 +11,10 @@ const browser = await chromium.launch({ executablePath: '/usr/bin/google-chrome'
 const ctx = await browser.newContext({ viewport: { width: 412, height: 915 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true, permissions: ['camera'], acceptDownloads: true });
 const page = await ctx.newPage();
 const errs = []; page.on('pageerror', e => errs.push(e.message)); page.on('console', m => { if (m.type() === 'error') errs.push(m.text()); });
+async function camShot(pg, path) { // podgląd + panel kamery (dwa sąsiednie bloki)
+  const a = await pg.evaluate(() => { const s = document.getElementById('stick').getBoundingClientRect(), c = document.querySelector('.camwrap').getBoundingClientRect(); return { x: s.left, y: s.top + scrollY, w: s.width, h: c.bottom - s.top }; });
+  await pg.screenshot({ path, fullPage: true, clip: { x: a.x, y: a.y, width: a.w, height: a.h } });
+}
 const stats = () => page.evaluate(() => { const L = window.__licznik, n = performance.now(); return { s0: L.calc.stats(0, n), s1: L.calc.stats(1, n), fps: L.fps(), rec: L.records().length }; });
 
 // 1) symulacja P=5 kW, Q=1,5 kvar
@@ -59,6 +63,21 @@ let rk = await page.evaluate(() => window.__licznik.rois());
 check('Znajdź diody (symulacja): kWh ≈ 0,36, kvarh ≈ 0,50, ROI przestawione', fr && Math.abs(rk[0].x - 0.36) < 0.02 && Math.abs(rk[1].x - 0.5) < 0.02,
   fr ? fr.cands.map(c => (c.role || 'X') + '@' + c.x.toFixed(2) + ',' + c.y.toFixed(2) + (c.reason ? '(' + c.reason + ')' : '')).join(' ') : 'brak wyniku');
 
+// 3d) układ telefonu 412x900: podgląd + wyniki bez przewijania, przypięte przy przewijaniu
+await page.setViewportSize({ width: 412, height: 900 });
+await page.goto(base + '?sim=1&P=5&Q=1.5&track=0');
+await page.waitForTimeout(9000);
+let lay = await page.evaluate(() => { const c = document.getElementById('cam').getBoundingClientRect(), r = document.getElementById('resbar').getBoundingClientRect(); return { camTop: c.top, camH: c.height, resBottom: r.bottom, p: document.getElementById('bpInst').textContent, q: document.getElementById('bqInst').textContent, cos: document.getElementById('bCos').textContent }; });
+check('412x900: kamera i pasek wyników widoczne bez przewijania (symulacja)', lay.resBottom <= 900 && lay.camH > 150 && lay.p !== '-' && lay.q !== '-' && lay.cos !== '-', JSON.stringify(lay));
+await page.screenshot({ path: out + '/10-uklad-telefon.png' });
+await page.evaluate(() => window.scrollTo(0, 1600));
+await page.waitForTimeout(400);
+lay = await page.evaluate(() => { const r = document.getElementById('resbar').getBoundingClientRect(), c = document.getElementById('cam').getBoundingClientRect(); return { camTop: c.top, resBottom: r.bottom }; });
+check('przewinięcie: podgląd i wyniki przyklejone u góry', lay.camTop >= -1 && lay.camTop < 20 && lay.resBottom < 900, JSON.stringify(lay));
+await page.screenshot({ path: out + '/11-przewiniete-przypiete.png' });
+await page.evaluate(() => window.scrollTo(0, 0));
+await page.setViewportSize({ width: 412, height: 915 });
+
 // 4) zaznaczanie ROI dotykiem
 const box = await page.locator('#overlay').boundingBox();
 await page.click('.roisel[data-ch="1"]');
@@ -79,7 +98,7 @@ if (y4m) {
   const modShown = fr && fr.cands.some(c => !c.ok && c.x > 0.8);
   check('film: Znajdź diody - kWh po lewej (x≈0,33), kvarh środkowa (x≈0,45), moduł nieprzyjęty', fr && Math.abs(rk[0].x - 0.33) < 0.025 && Math.abs(rk[1].x - 0.448) < 0.025 && modOk, desc);
   check('film: dioda modułu pokazana jako odrzucona', modShown, desc);
-  await page.locator('.camwrap').screenshot({ path: out + '/07-znajdz-diody.png' });
+  await camShot(page, out + '/07-znajdz-diody.png');
   await page.click('#btnReset');
   await page.waitForTimeout(12500);
   s = await stats();
@@ -87,6 +106,10 @@ if (y4m) {
   const recs = await page.evaluate(() => window.__licznik.records().filter(r => r.ch === 0 && r.T).map(r => +r.T.toFixed(3)));
   console.log('     T kWh [s]:', recs.join(' '), '(1,60 = film; 1,37 = skok pętli filmu)');
   await page.screenshot({ path: out + '/06-film-przez-kamere.png' });
+  await page.setViewportSize({ width: 412, height: 900 }); await page.evaluate(() => window.scrollTo(0, 0)); await page.waitForTimeout(300);
+  lay = await page.evaluate(() => { const r = document.getElementById('resbar').getBoundingClientRect(), c = document.getElementById('cam').getBoundingClientRect(); return { camH: Math.round(c.height), camW: Math.round(c.width), resBottom: Math.round(r.bottom) }; });
+  check('412x900, pionowy obraz z kamery (film): wyniki bez przewijania', lay.resBottom <= 900 && lay.camH > 200, JSON.stringify(lay));
+  await page.screenshot({ path: out + '/12-uklad-telefon-kamera.png' });
 }
 check('brak błędów JS', errs.length === 0, errs.slice(0, 3).join(' | '));
 await browser.close();
@@ -125,7 +148,7 @@ check('ostrość: Zablokuj -> focusMode manual z bieżącą odległością', lk.
 const fst = await p2.textContent('#focusStat');
 check('ostrość: status pokazuje blokadę', /zablokowana/.test(fst), fst);
 await p2.evaluate(() => document.getElementById('focusCtl').scrollIntoView({ block: 'center' }));
-await p2.locator('.camwrap').screenshot({ path: out + '/08-fokus.png' });
+await camShot(p2, out + '/08-fokus.png');
 check('ostrość: brak błędów JS', e2.length === 0, e2.join(' | '));
 await b2.close();
 console.log(fail ? fail + ' błędów' : 'UI: wszystko OK');

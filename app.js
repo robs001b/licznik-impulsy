@@ -455,6 +455,7 @@
     var last = S[S.length - 1];
     $('lvl' + i).textContent = 'sygnał ' + Math.round(last.v) + ' / tło ' + Math.round(last.b) + ' / próg ' + Math.round(last.on);
     $('fl' + i).classList.toggle('on', last.hi);
+    $('bfl' + i).classList.toggle('on', last.hi);
   }
   function drawChart() {
     var c = $('chart'), dpr = fitCanvas(c), g = c.getContext('2d'), W = c.width, H = c.height;
@@ -479,7 +480,7 @@
     $('chartSpan').textContent = 'ostatnie ' + Math.round(tMax - tMin) + ' s';
   }
   function updateCards() {
-    var now = performance.now(), st = [calc.stats(0, now), calc.stats(1, now)], pre = ['p', 'q'];
+    var now = performance.now(), st = [calc.stats(0, now), calc.stats(1, now)], pre = ['p', 'q'], warns = [];
     for (var i = 0; i < 2; i++) {
       var s = st[i], P = pre[i];
       $(P + 'Inst').textContent = fmtP(s.inst);
@@ -493,12 +494,22 @@
       if (s.stale) w = 'Brak impulsu od ' + fmtS(s.since) + ' - ' + (i ? 'Q' : 'P') + ' ≤ ' + fmtP(s.maxPossible) + ' ' + UNITS[i] + ' (maks. możliwa)';
       else if (running && !s.count && samples[i].length && samples[i][samples[i].length - 1].t - samples[i][0].t > 4000) w = 'Brak impulsów - sprawdź obszar i czułość';
       $(P + 'Max').textContent = w;
+      $('b' + P + 'Inst').textContent = fmtP(s.inst);
+      $('b' + P + 'Inst').style.opacity = s.stale ? 0.45 : 1;
+      $('b' + P + 'Avg').textContent = fmtP(s.avg);
+      $('b' + P + 'T').textContent = isFinite(s.lastT) ? fmt(s.lastT, 2) + ' s' : '-';
+      $('b' + P + 'Since').textContent = fmtS(s.since);
+      $('b' + P + 'Cnt').textContent = s.count;
+      warns.push(s.stale ? (i ? 'Q' : 'P') + ' ≤ ' + fmtP(s.maxPossible) : '');
     }
+    $('bWarn').textContent = warns.filter(Boolean).length ? 'brak imp.: ' + warns.filter(Boolean).join(', ') : '';
     var Pv = isFinite(st[0].avg) ? st[0].avg : st[0].inst, Qv = isFinite(st[1].avg) ? st[1].avg : st[1].inst;
     var cphi = D.cosPhi(Pv, Qv);
     $('cos').textContent = fmt(cphi, 3);
     $('sApp').textContent = isFinite(cphi) ? fmtP(Math.sqrt(Pv * Pv + Qv * Qv)) : '-';
     $('tg').textContent = isFinite(cphi) && Pv > 0 ? fmt(Qv / Pv, 3) : '-';
+    $('bCos').textContent = fmt(cphi, 3);
+    $('bS').textContent = $('sApp').textContent;
     var dt = (now - fpsT) / 1000;
     if (dt >= 1) { fps = frames / dt; frames = 0; fpsT = now; }
     $('fps').textContent = running ? fmt(fps, 0) + ' fps' + (hasRVFC ? '' : ' (rAF)') + (fps && fps < 20 ? ' - za mało na krótkie błyski' : '') : '- fps';
@@ -556,6 +567,11 @@
   $('xtalk').addEventListener('input', function (e) { cfg.xtalk = Number(e.target.value); applyCfg(); save(); showX(); }); showX();
   $('mode').value = cfg.mode;
   $('mode').addEventListener('change', function (e) { cfg.mode = e.target.value; det.reset(); save(); });
+  // przypięcie podglądu z wynikami (sticky); domyślnie włączone
+  if (cfg.pin == null) cfg.pin = true;
+  $('pin').checked = cfg.pin;
+  var applyPin = function () { $('stick').classList.toggle('pinned', !!cfg.pin); document.documentElement.style.setProperty('--camh', cfg.pin ? '38vh' : '42vh'); };
+  $('pin').addEventListener('change', function (e) { cfg.pin = e.target.checked; save(); applyPin(); }); applyPin();
   $('track').checked = !!cfg.track;
   $('track').addEventListener('change', function (e) { cfg.track = e.target.checked; save(); });
   applyCfg();
