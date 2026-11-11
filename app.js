@@ -15,14 +15,16 @@
   var samples = [[], []], marks = [[], []];
   var peakCentroid = [null, null], peakEx = [0, 0];
   var frames = 0, fpsT = performance.now(), fps = 0, lastFrameT = 0;
-  var sc = document.createElement('canvas'); sc.width = 120; sc.height = 80;
+  var sc = document.createElement('canvas'); sc.width = 240; sc.height = 300;
   var sctx = sc.getContext('2d', { willReadFrequently: true });
   var SAMPLE_SPAN = 6000;
 
   function load() {
-    var d = { cK: 1000, cQ: 1000, nAvg: 5, minInt: 60, maxPulse: 300, xtalk: 0.6, mode: 'luma', sens: [0.5, 0.5], track: false,
+    var d = { cK: 1000, cQ: 1000, nAvg: 5, minInt: 60, maxPulse: 300, xtalk: 0.6, mode: 'led', sens: [0.5, 0.5], track: false, focusLock: false, ver: 2,
               rois: { cam: null, sim: null }, cam: {} };
     try { var s = JSON.parse(localStorage.getItem(LS) || '{}'); for (var k in s) d[k] = s[k]; } catch (e) {}
+    if (!(d.ver >= 2)) { d.mode = 'led'; d.ver = 2; } // migracja: nowy domyślny sygnał "czerwona dioda"
+    if (d.mode === 'red') d.mode = 'led';
     return d;
   }
   function save() { try { localStorage.setItem(LS, JSON.stringify(cfg)); } catch (e) {} }
@@ -59,7 +61,7 @@
   function sampleFrame(t) {
     var vw = video.videoWidth, vh = video.videoHeight;
     if (!vw || !vh) return;
-    var R = rois(), vals = [0, 0], wins = [];
+    var R = rois(), vals = [0, 0], rings = [0, 0], wins = [];
     for (var i = 0; i < 2; i++) {
       var r = R[i];
       var sx = (r.x - r.w) * vw, sy = (r.y - r.h) * vh, sw = 2 * r.w * vw, sh = 2 * r.h * vh; // okno 2x ROI
@@ -67,22 +69,78 @@
       sctx.drawImage(video, sx, sy, sw, sh, i * 60, 0, SW, SH);
       var img = sctx.getImageData(i * 60, 0, SW, SH);
       var inner = { x0: Math.round(SW / 4), x1: Math.round(SW * 3 / 4), y0: Math.round(SH / 4), y1: Math.round(SH * 3 / 4) };
-      vals[i] = D.roiStats(img.data, SW, SH, cfg.mode, inner).mean;
+      var st = D.roiStats(img.data, SW, SH, cfg.mode, inner);
+      vals[i] = st.mean; rings[i] = st.ring;
       wins.push({ data: img.data, w: SW, h: SH });
     }
-    var pulses = det.process(t, vals);
+    // globalne tło całego kadru (mała kopia) - zmiana oświetlenia nie może dać impulsu
+    var GW = 48, GH = Math.max(8, Math.min(96, Math.round(GW * vh / vw)));
+    sctx.drawImage(video, 0, 0, vw, vh, 120, 0, GW, GH);
+    var glob = D.frameMean(sctx.getImageData(120, 0, GW, GH).data, GW, GH, cfg.mode);
+    var pulses = det.process(t, vals, { ring: rings, global: glob });
+    if (finding) findFrame(t, vw, vh);
     for (i = 0; i < 2; i++) {
       var ch = det.ch[i], th = ch.thresholds();
       samples[i].push({ t: t, v: vals[i], b: ch.base, on: th.on, off: th.off, hi: ch.high });
       while (samples[i].length && samples[i][0].t < t - SAMPLE_SPAN) samples[i].shift();
       if (ch.high) {
         var ex = vals[i] - ch.base;
-        if (cfg.track && ex >= peakEx[i]) { peakEx[i] = ex; peakCentroid[i] = D.brightCentroid(wins[i].data, wins[i].w, wins[i].h); }
+        if (cfg.track && ex >= peakEx[i]) { peakEx[i] = ex; peakCentroid[i] = D.brightCentroid(wins[i].data, wins[i].w, wins[i].h, cfg.mode); }
       } else peakEx[i] = 0;
     }
     pulses.forEach(function (p) { onPulse(p); });
     frames++;
   }
+
+  /* ---------- Znajdź diody ---------- */
+  var finding = null, lastFind = null, FIND_MS = 5000;
+  var fc = document.createElement('canvas'), fctx = fc.getContext('2d', { willReadFrequently: true });
+  function startFind() {
+    if (!running) { status('Najpierw uruchom kamerę albo symulację.', true); return; }
+    var vw = video.videoWidth, vh = video.videoHeight;
+    var AW = vw >= vh ? 192 : 160, AH = Math.round(AW * vh / vw);
+    fc.width = AW; fc.height = AH;
+    finding = { t0: null, maps: [], times: [], AW: AW, AH: AH };
+    lastFind = null; $('findList').innerHTML = '';
+    $('btnFind').disabled = true;
+    status('Szukam migających czerwonych diod - trzymaj telefon nieruchomo (' + FIND_MS / 1000 + ' s)...');
+  }
+  function findFrame(t, vw, vh) {
+    var F = finding;
+    if (F.t0 == null) F.t0 = t;
+    fctx.drawImage(video, 0, 0, vw, vh, 0, 0, F.AW, F.AH);
+    F.maps.push(D.scoreMap(fctx.getImageData(0, 0, F.AW, F.AH).data, F.AW, F.AH, 'led', 3));
+    F.times.push(t);
+    var left = FIND_MS - (t - F.t0);
+    $('btnFind').textContent = left > 0 ? 'Analiza... ' + Math.ceil(left / 1000) + ' s' : 'Analiza...';
+    if (left <= 0) { finding = null; setTimeout(function () { finishFind(F); }, 0); }
+  }
+  function finishFind(F) {
+    var res = D.findLeds(F.maps, F.times, F.AW, F.AH);
+    $('btnFind').disabled = false; $('btnFind').textContent = 'Znajdź diody';
+    lastFind = { res: res, t: performance.now() };
+    var R = rois(), set = 0;
+    res.roi.forEach(function (r, i) { if (r) { R[i] = clampRoi(r); det.ch[i].reset(); set++; } });
+    if (set) save();
+    var acc = res.cands.filter(function (c) { return c.ok; }), rej = res.cands.filter(function (c) { return !c.ok && showCand(c); });
+    var other = res.cands.length - acc.length - rej.length;
+    var li = function (c) {
+      var p = isFinite(c.period) ? ', okres ' + fmt(c.period, 2) + ' s' : '';
+      return '<li><b>' + (c.role || 'odrzucona') + '</b> - ' + (c.ok ? 'błyski: ' + c.events + p + (isFinite(c.dur) ? ', błysk ok. ' + Math.round(c.dur) + ' ms' : '') : c.reason) + '</li>';
+    };
+    $('findList').innerHTML = (acc.length ? '<p>Znalezione:</p><ul>' + acc.map(li).join('') + '</ul>' : '') +
+      (rej.length ? '<p>Odrzucone (' + rej.length + '):</p><ul>' + rej.slice(0, 6).map(li).join('') + '</ul>' : '') +
+      (other > 0 ? '<p>Pominięte: ' + other + ' (poświata sąsiedniej diody / brak błysków)</p>' : '');
+    status(set ? 'Ustawiono obszary automatycznie: ' + acc.map(function (c) { return c.role; }).join(', ') + '. ' + (res.msg || 'Sprawdź na podglądzie, w razie potrzeby popraw ręcznie.') : (res.msg || 'Nie znaleziono diod.'), !set);
+  }
+  function shortReason(r) {
+    var m = [[/moduł/, 'szybkie miganie'], [/duża plama/, 'odblask'], [/wydłużony/, 'krawędź'], [/poza rzędem/, 'poza rzędem'], [/stale/, 'świeci stale'],
+             [/pojedynczy/, 'refleks?'], [/trzecia/, 'Alarm?'], [/poza zakresem/, 'zły czas błysku']];
+    for (var i = 0; i < m.length; i++) if (m[i][0].test(r)) return m[i][1];
+    return 'odrzucona';
+  }
+  function showCand(c) { return c.ok || !/poświata|brak błysków/.test(c.reason); }
+  window.__find = function () { return lastFind && lastFind.res; };
 
   function onPulse(p) {
     if (startPerf == null) { startPerf = p.t; startWall = Date.now() - (performance.now() - p.t); }
@@ -137,9 +195,9 @@
     srcMode = 'sim';
     sim = new window.LicznikSim(function () { return [cfg.cK, cfg.cQ]; });
     ['P', 'Q', 'Dur'].forEach(function (k) { simInput(k); });
-    sim.set('shake', $('simShake').checked);
+    sim.set('shake', $('simShake').checked); sim.set('glare', $('simGlare').checked);
     stream = sim.stream; track = null;
-    $('simPanel').hidden = false; $('camCtl').innerHTML = '';
+    $('simPanel').hidden = false; $('camCtl').innerHTML = ''; $('focusCtl').innerHTML = '<p class="hint">Symulacja - ostrość nie dotyczy.</p>';
     attach(stream).then(function () { status('Symulacja: wirtualny licznik, te same obliczenia co z kamery.'); });
   }
   async function attach(s) {
@@ -157,7 +215,8 @@
     requestWake();
   }
   function stop() {
-    running = false; loopGen++;
+    running = false; loopGen++; finding = null; clearInterval(focusTimer);
+    if ($('btnFind')) { $('btnFind').disabled = false; $('btnFind').textContent = 'Znajdź diody'; }
     if (sim) { sim.stop(); sim = null; }
     if (stream) stream.getTracks().forEach(function (t) { t.stop(); });
     stream = null; track = null;
@@ -212,6 +271,70 @@
       box.appendChild(b);
     }
     if (!box.children.length) box.innerHTML = '<p class="hint">Aparat nie udostępnia zoomu ani ekspozycji w tej przeglądarce.</p>';
+    buildFocus(caps);
+  }
+
+  /* ---------- ostrość ---------- */
+  var focusTimer = null, focusArm = false, focusMark = null;
+  function buildFocus(caps) {
+    var box = $('focusCtl'); box.innerHTML = '';
+    clearInterval(focusTimer);
+    var fm = (caps && caps.focusMode) || [];
+    var sup = navigator.mediaDevices.getSupportedConstraints ? navigator.mediaDevices.getSupportedConstraints() : {};
+    var poi = !!sup.pointsOfInterest;
+    if (!fm.length) {
+      box.innerHTML = '<p class="hint">Ostrość: przeglądarka nie udostępnia sterowania (brak focusMode) - aparat ustawia ją sam. Dotknij ekranu w aplikacji aparatu albo zmień odległość, jeśli obraz jest nieostry.</p>';
+      return;
+    }
+    var has = function (m) { return fm.indexOf(m) >= 0; };
+    box.innerHTML = '<div class="focushead">Ostrość <span id="focusStat" class="mono">-</span></div>' +
+      '<div class="bar fbar"><button id="fCont">Auto (ciągła)</button><button id="fTap">Dotknij, by ustawić</button><button id="fLock">Zablokuj</button></div>' +
+      '<label class="chk"><input type="checkbox" id="fAuto"> Blokuj ostrość automatycznie po złapaniu (bez "pompowania")</label>' +
+      '<p class="hint" id="fInfo"></p>';
+    var info = [];
+    if (!has('continuous')) info.push('brak trybu ciągłego');
+    if (!poi) info.push('brak wyboru punktu ostrości (pointsOfInterest) - dotknięcie wyzwala tylko ponowne ostrzenie');
+    if (!(has('manual') && caps.focusDistance) && !has('single-shot')) info.push('blokada ostrości niedostępna');
+    $('fInfo').textContent = info.length ? 'Ograniczenia: ' + info.join('; ') + '.' : 'Tryby: ' + fm.join(', ') + (poi ? ', punkt ostrości: tak' : '') + '.';
+    $('fCont').disabled = !has('continuous');
+    $('fLock').disabled = !(has('manual') && caps.focusDistance) && !has('single-shot');
+    $('fCont').onclick = function () { focusApply({ focusMode: 'continuous' }, 'ciągła'); cfg.focusLock = false; save(); };
+    $('fLock').onclick = function () { lockFocus(caps); };
+    $('fTap').onclick = function () { focusArm = true; status('Dotknij na podglądzie miejsca, które ma być ostre (szczelina z diodami).'); };
+    $('fAuto').checked = !!cfg.focusLock;
+    $('fAuto').onchange = function (e) { cfg.focusLock = e.target.checked; save(); if (cfg.focusLock) setTimeout(function () { lockFocus(caps); }, 2500); };
+    box.dataset.caps = '1';
+    if (has('continuous')) focusApply({ focusMode: 'continuous' }, 'ciągła');
+    if (cfg.focusLock) setTimeout(function () { lockFocus(caps); }, 3000);
+    focusTimer = setInterval(showFocus, 800); showFocus();
+    buildFocus.caps = caps; buildFocus.poi = poi;
+  }
+  function focusApply(c, label) {
+    if (!track) return Promise.resolve();
+    return track.applyConstraints({ advanced: [c] }).then(function () { showFocus(label); })
+      .catch(function (e) { status('Aparat odrzucił ustawienie ostrości: ' + e.message, true); });
+  }
+  function lockFocus(caps) {
+    if (!track) return;
+    var st = track.getSettings(), fm = caps.focusMode || [];
+    if (fm.indexOf('manual') >= 0 && caps.focusDistance && st.focusDistance != null) focusApply({ focusMode: 'manual', focusDistance: st.focusDistance }, 'zablokowana');
+    else if (fm.indexOf('single-shot') >= 0) focusApply({ focusMode: 'single-shot' }, 'zablokowana (single-shot)');
+  }
+  function focusTap(p) {
+    var caps = buildFocus.caps || {}, fm = caps.focusMode || [];
+    var c = { focusMode: fm.indexOf('single-shot') >= 0 ? 'single-shot' : 'continuous' };
+    if (buildFocus.poi) c.pointsOfInterest = [{ x: p.x, y: p.y }];
+    focusMark = { x: p.x, y: p.y, t: performance.now() };
+    focusApply(c, 'ostrzenie w punkcie').then(function () {
+      status('Ustawiono ostrość w punkcie.' + (cfg.focusLock ? ' Za chwilę blokada.' : ''));
+      if (cfg.focusLock) setTimeout(function () { lockFocus(caps); }, 2000);
+    });
+  }
+  function showFocus() {
+    var e = $('focusStat'); if (!e || !track) return;
+    var st = track.getSettings ? track.getSettings() : {};
+    var m = st.focusMode, names = { continuous: 'ciągła (auto)', 'single-shot': 'jednorazowa / zablokowana', manual: 'zablokowana (ręczna)', none: 'brak' };
+    e.textContent = (names[m] || m || '?') + (st.focusDistance != null ? ' · odl. ' + fmt(st.focusDistance, 2) + ' m' : '');
   }
 
   /* ---------- dotyk na podglądzie ---------- */
@@ -225,7 +348,9 @@
   overlay.addEventListener('pointerdown', function (e) {
     if (!running) return;
     overlay.setPointerCapture(e.pointerId);
-    var p = pos(e), h = hit(p);
+    var p = pos(e);
+    if (focusArm) { focusArm = false; focusTap(p); return; }
+    var h = hit(p);
     if (h >= 0) { setActive(h); var r = rois()[h]; drag = { type: 'move', i: h, dx: p.x - r.x, dy: p.y - r.y }; }
     else drag = { type: 'new', i: active, p0: p, p1: p };
   });
@@ -245,7 +370,7 @@
       det.ch[drag.i].reset();
       if (drag.i === 0) setActive(1);
     } else det.ch[drag.i].reset();
-    drag = null; save();
+    drag = null; save(); if (lastFind) lastFind.t = -1e9;
   }
   overlay.addEventListener('pointerup', endDrag);
   overlay.addEventListener('pointercancel', endDrag);
@@ -280,6 +405,26 @@
       octx.strokeRect(x, y, w, h);
       octx.font = (12 * dpr) + 'px sans-serif'; octx.fillStyle = COLORS[i];
       octx.fillText(NAMES[i], x, y - 4 * dpr);
+    }
+    if (lastFind && performance.now() - lastFind.t < 20000) {
+      lastFind.res.cands.filter(showCand).forEach(function (c) {
+        var cx = c.x * W, cy = c.y * H, rr = Math.max(8 * dpr, c.r * W * 2.2);
+        octx.lineWidth = 2 * dpr;
+        if (c.ok) { octx.strokeStyle = '#3fb950'; octx.setLineDash([]); }
+        else { octx.strokeStyle = 'rgba(200,200,200,0.85)'; octx.setLineDash([3 * dpr, 3 * dpr]); }
+        octx.beginPath(); octx.arc(cx, cy, rr, 0, 7); octx.stroke(); octx.setLineDash([]);
+        if (!c.ok) { octx.beginPath(); octx.moveTo(cx - rr * 0.6, cy - rr * 0.6); octx.lineTo(cx + rr * 0.6, cy + rr * 0.6); octx.moveTo(cx + rr * 0.6, cy - rr * 0.6); octx.lineTo(cx - rr * 0.6, cy + rr * 0.6); octx.stroke(); }
+        octx.font = 'bold ' + (11 * dpr) + 'px sans-serif';
+        var txt = c.ok ? c.role : '✕ ' + shortReason(c.reason);
+        var tw = octx.measureText(txt).width;
+        var tx = Math.min(W - tw - 2 * dpr, Math.max(2 * dpr, cx - tw / 2)), ty = c.ok ? cy + rr + 13 * dpr : cy - rr - 4 * dpr;
+        octx.fillStyle = 'rgba(0,0,0,0.6)'; octx.fillRect(tx - 2 * dpr, ty - 11 * dpr, tw + 4 * dpr, 14 * dpr);
+        octx.fillStyle = c.ok ? '#3fb950' : '#ddd'; octx.fillText(txt, tx, ty);
+      });
+    }
+    if (focusMark && performance.now() - focusMark.t < 1500) {
+      octx.strokeStyle = '#ffd33d'; octx.lineWidth = 2 * dpr; var fx = focusMark.x * W, fy = focusMark.y * H, fs = 22 * dpr;
+      octx.strokeRect(fx - fs, fy - fs, 2 * fs, 2 * fs);
     }
     if (drag && drag.type === 'new') {
       octx.strokeStyle = COLORS[drag.i]; octx.setLineDash([6 * dpr, 4 * dpr]);
@@ -422,7 +567,9 @@
   }
   ['P', 'Q', 'Dur'].forEach(function (k) { $('sim' + k).addEventListener('input', function () { simInput(k); }); });
   $('simShake').addEventListener('change', function (e) { if (sim) sim.set('shake', e.target.checked); });
+  $('simGlare').addEventListener('change', function (e) { if (sim) sim.set('glare', e.target.checked); });
 
+  $('btnFind').onclick = startFind;
   $('btnCam').onclick = startCam;
   $('btnSim').onclick = startSim;
   $('btnStop').onclick = function () { stop(); status('Zatrzymano. Wyniki zostają do eksportu.'); };
@@ -436,9 +583,11 @@
     if (q.get('Q')) $('simQ').value = q.get('Q');
     if (q.get('dur')) $('simDur').value = q.get('dur');
     if (q.get('shake')) $('simShake').checked = true;
+    if (q.get('glare')) $('simGlare').checked = true;
     startSim();
   } else if (q.get('cam')) startCam();
 
+  if (q.get('find')) setTimeout(function wait() { if (running && video.videoWidth) startFind(); else setTimeout(wait, 200); }, Number(q.get('find')) || 800);
   if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(function () {});
   window.__licznik = { records: function () { return records; }, calc: calc, det: det, rois: rois, fps: function () { return fps; } };
 })();

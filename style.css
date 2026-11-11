@@ -55,3 +55,10 @@ button:disabled{opacity:.45}
 details summary{cursor:pointer;font-weight:600}
 details p,details li{font-size:.9rem;color:#c9d1d9}
 footer{text-align:center;color:var(--mu);font-size:.85rem;padding:16px 10px 28px}
+.roibar .find{background:#238636;border-color:#238636;color:#fff;font-weight:600}
+.findlist{font-size:.85rem;color:#c9d1d9;margin:4px 2px}
+.findlist p{margin:6px 0 2px;color:var(--mu)}
+.findlist ul{margin:0;padding-left:18px}
+.focushead{font-size:.92rem;margin-top:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.fbar{margin:6px 0}.fbar button{padding:8px 10px;font-size:.92rem}
+.camctl label.chk{flex-wrap:nowrap;align-items:flex-start}.camctl label.chk input{flex:0 0 20px;margin-top:2px}

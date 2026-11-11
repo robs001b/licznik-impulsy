@@ -5,7 +5,7 @@
     var W = 640, H = 360;
     var cv = document.createElement('canvas'); cv.width = W; cv.height = H;
     var g = cv.getContext('2d');
-    var st = { P: 5, Q: 1.5, dur: 100, shake: false };
+    var st = { P: 5, Q: 1.5, dur: 100, shake: false, glare: false };
     var next = [0, 0], period = [0, 0], running = true, t0 = performance.now();
     var LED = [{ x: 0.36, y: 0.52 }, { x: 0.5, y: 0.52 }, { x: 0.64, y: 0.52 }];
     var MOD = { x: 0.9, y: 0.62 };
@@ -57,8 +57,20 @@
       g.fillStyle = '#d6d0d0'; g.fillRect(W * 0.84, H * 0.45, W * 0.12, H * 0.35);
       var mOn = Math.floor((now - t0) / 60) % 2 === 0;
       g.fillStyle = mOn ? '#ff2020' : '#401010'; g.beginPath(); g.arc(MOD.x * W, MOD.y * H, 6, 0, 7); g.fill();
+      if (st.glare) {
+        var ts = (now - t0) / 1000;
+        // stały biały odblask lampy obok diody kWh i ruchomy refleks przesuwający się wzdłuż szczeliny
+        g.fillStyle = '#ffffff'; g.beginPath(); g.ellipse(LED[0].x * W + 10, LED[0].y * H - 6, 9, 5, 0, 0, 7); g.fill();
+        var rx = W * 0.2 + ((ts * 60) % (W * 0.6));
+        g.beginPath(); g.ellipse(rx, H * 0.52, 12, 7, 0, 0, 7); g.fill();
+      }
       // szum
       g.setTransform(1, 0, 0, 1, 0, 0);
+      if (st.glare) { // migotanie lampy 100 Hz (aliasing z klatkami aparatu)
+        var fl = Math.sin(2 * Math.PI * 100 * (now / 1000) + Math.random() * 0.5);
+        g.fillStyle = fl > 0 ? 'rgba(255,255,255,' + (0.12 * fl).toFixed(3) + ')' : 'rgba(0,0,0,' + (-0.12 * fl).toFixed(3) + ')';
+        g.fillRect(0, 0, W, H);
+      }
       g.fillStyle = 'rgba(' + (Math.random() < 0.5 ? '0,0,0' : '255,255,255') + ',' + (Math.random() * 0.03).toFixed(3) + ')';
       g.fillRect(0, 0, W, H);
       requestAnimationFrame(draw);

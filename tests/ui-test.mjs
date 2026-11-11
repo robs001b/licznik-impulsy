@@ -44,6 +44,21 @@ await page.waitForTimeout(15000);
 s = await stats();
 check('symulacja z drganiami + śledzenie: P ≈ 8 kW (±5%)', Math.abs(s.s0.avg / 8 - 1) < 0.05, `P=${s.s0.avg?.toFixed(3)}, Q=${s.s1.avg?.toFixed(3)}`);
 
+// 3b) odblask lampy + ruchomy refleks + migotanie
+await page.goto(base + '?sim=1&P=6&Q=2&glare=1&track=0');
+await page.waitForTimeout(15000);
+s = await stats();
+check('symulacja z odblaskiem, refleksem i migotaniem: P ≈ 6 kW, Q ≈ 2 kvar (±5%)', Math.abs(s.s0.avg / 6 - 1) < 0.05 && Math.abs(s.s1.avg / 2 - 1) < 0.05, `P=${s.s0.avg?.toFixed(3)}, Q=${s.s1.avg?.toFixed(3)}, kWh ${s.s0.count}, kvarh ${s.s1.count}`);
+await page.screenshot({ path: out + '/09-symulacja-odblaski.png' });
+
+// 3c) Znajdź diody w symulacji (ROI startowo w złym miejscu)
+await page.goto(base + '?sim=1&P=8&Q=3&track=0&roi0=0.2,0.3,0.04,0.07&roi1=0.8,0.3,0.04,0.07&find=1000');
+await page.waitForTimeout(8000);
+let fr = await page.evaluate(() => window.__find());
+let rk = await page.evaluate(() => window.__licznik.rois());
+check('Znajdź diody (symulacja): kWh ≈ 0,36, kvarh ≈ 0,50, ROI przestawione', fr && Math.abs(rk[0].x - 0.36) < 0.02 && Math.abs(rk[1].x - 0.5) < 0.02,
+  fr ? fr.cands.map(c => (c.role || 'X') + '@' + c.x.toFixed(2) + ',' + c.y.toFixed(2) + (c.reason ? '(' + c.reason + ')' : '')).join(' ') : 'brak wyniku');
+
 // 4) zaznaczanie ROI dotykiem
 const box = await page.locator('#overlay').boundingBox();
 await page.click('.roisel[data-ch="1"]');
@@ -54,13 +69,64 @@ check('dotyk przenosi obszar kvarh', Math.abs(r1.x - 0.7) < 0.02 && Math.abs(r1.
 // 5) fałszywa kamera z filmu licznika (opcjonalnie)
 if (y4m) {
     // Chrome przycina pionowy film 576x1024 do 576x720 (środek): y = (305-152)/720
-  await page.goto(base + '?cam=1&track=0&roi0=0.3299,0.2125,0.03125,0.0167&roi1=0.4462,0.2125,0.03125,0.0167');
+  // obszary startowo celowo źle - ustawia je "Znajdź diody"
+  await page.goto(base + '?cam=1&track=0&roi0=0.6,0.6,0.03,0.02&roi1=0.7,0.6,0.03,0.02&find=1500');
+  await page.waitForTimeout(8000);
+  fr = await page.evaluate(() => window.__find());
+  rk = await page.evaluate(() => window.__licznik.rois());
+  const desc = fr ? fr.cands.map(c => (c.role || 'X') + '@' + c.x.toFixed(3) + ',' + c.y.toFixed(3) + (c.reason ? '(' + c.reason + ')' : '')).join(' ') : 'brak';
+  const modOk = fr && !fr.cands.some(c => c.ok && c.x > 0.8);
+  const modShown = fr && fr.cands.some(c => !c.ok && c.x > 0.8);
+  check('film: Znajdź diody - kWh po lewej (x≈0,33), kvarh środkowa (x≈0,45), moduł nieprzyjęty', fr && Math.abs(rk[0].x - 0.33) < 0.025 && Math.abs(rk[1].x - 0.448) < 0.025 && modOk, desc);
+  check('film: dioda modułu pokazana jako odrzucona', modShown, desc);
+  await page.locator('.camwrap').screenshot({ path: out + '/07-znajdz-diody.png' });
+  await page.click('#btnReset');
   await page.waitForTimeout(12500);
   s = await stats();
-  check('film (pętla 2,9 s) przez kamerę: wykryte impulsy kWh i P ≈ 2,24 kW', s.s0.count >= 6 && Math.abs(s.s0.avg / 2.24 - 1) < 0.25, `kWh ${s.s0.count}, kvarh ${s.s1.count}, P śr. ${s.s0.avg?.toFixed(2)} kW, fps ${s.fps.toFixed(0)}`);
+  check('film (pętla 2,9 s) przez kamerę po auto-ROI: impulsy kWh co 1,60 s', s.s0.count >= 6 && Math.abs(s.s0.lastT - 1.6) < 0.05 || Math.abs(s.s0.lastT - 1.37) < 0.05, `kWh ${s.s0.count}, kvarh ${s.s1.count}, ostatni T ${s.s0.lastT?.toFixed(3)} s, P śr. ${s.s0.avg?.toFixed(2)} kW, fps ${s.fps.toFixed(0)}`);
+  const recs = await page.evaluate(() => window.__licznik.records().filter(r => r.ch === 0 && r.T).map(r => +r.T.toFixed(3)));
+  console.log('     T kWh [s]:', recs.join(' '), '(1,60 = film; 1,37 = skok pętli filmu)');
   await page.screenshot({ path: out + '/06-film-przez-kamere.png' });
 }
 check('brak błędów JS', errs.length === 0, errs.slice(0, 3).join(' | '));
 await browser.close();
+
+// 6) ostrość - atrapa aparatu z Androida (focusMode, focusDistance, pointsOfInterest)
+const b2 = await chromium.launch({ executablePath: '/usr/bin/google-chrome', headless: true, args: ['--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream'] });
+const c2 = await b2.newContext({ viewport: { width: 412, height: 915 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true, permissions: ['camera'] });
+await c2.addInitScript(() => {
+  const st = { focusMode: 'continuous', focusDistance: 0.18, zoom: 1, exposureCompensation: 0 };
+  window.__applied = [];
+  MediaStreamTrack.prototype.getCapabilities = function () { return { focusMode: ['manual', 'single-shot', 'continuous'], focusDistance: { min: 0.05, max: 10, step: 0.01 }, zoom: { min: 1, max: 8, step: 0.1 }, exposureCompensation: { min: -3, max: 3, step: 0.1 }, torch: true, exposureMode: ['continuous', 'manual'], exposureTime: { min: 1, max: 1000, step: 1 } }; };
+  const gs = MediaStreamTrack.prototype.getSettings;
+  MediaStreamTrack.prototype.getSettings = function () { return Object.assign({}, gs.call(this), st); };
+  MediaStreamTrack.prototype.applyConstraints = function (c) { const a = (c && c.advanced && c.advanced[0]) || c || {}; window.__applied.push(a); Object.assign(st, a); if (a.focusMode === 'single-shot') st.focusDistance = 0.16; return Promise.resolve(); };
+  const sc = MediaDevices.prototype.getSupportedConstraints;
+  MediaDevices.prototype.getSupportedConstraints = function () { return Object.assign({}, sc.call(this), { pointsOfInterest: true, focusMode: true }); };
+});
+const p2 = await c2.newPage();
+const e2 = []; p2.on('pageerror', e => e2.push(e.message));
+await p2.goto(base + '?cam=1');
+await p2.waitForTimeout(2500);
+let ap = await p2.evaluate(() => window.__applied);
+check('ostrość: po starcie focusMode continuous', ap.some(a => a.focusMode === 'continuous'));
+await p2.click('#fTap');
+const ob = await p2.locator('#overlay').boundingBox();
+await p2.mouse.click(ob.x + ob.width * 0.4, ob.y + ob.height * 0.55);
+await p2.waitForTimeout(600);
+ap = await p2.evaluate(() => window.__applied);
+const poi = ap.find(a => a.pointsOfInterest);
+check('ostrość: dotknięcie wysyła pointsOfInterest + single-shot', poi && Math.abs(poi.pointsOfInterest[0].x - 0.4) < 0.02 && poi.focusMode === 'single-shot', JSON.stringify(poi));
+await p2.click('#fLock');
+await p2.waitForTimeout(900);
+ap = await p2.evaluate(() => window.__applied);
+const lk = ap[ap.length - 1];
+check('ostrość: Zablokuj -> focusMode manual z bieżącą odległością', lk.focusMode === 'manual' && lk.focusDistance === 0.16, JSON.stringify(lk));
+const fst = await p2.textContent('#focusStat');
+check('ostrość: status pokazuje blokadę', /zablokowana/.test(fst), fst);
+await p2.evaluate(() => document.getElementById('focusCtl').scrollIntoView({ block: 'center' }));
+await p2.locator('.camwrap').screenshot({ path: out + '/08-fokus.png' });
+check('ostrość: brak błędów JS', e2.length === 0, e2.join(' | '));
+await b2.close();
 console.log(fail ? fail + ' błędów' : 'UI: wszystko OK');
 process.exit(fail ? 1 : 0);

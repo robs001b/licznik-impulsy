@@ -31,16 +31,21 @@
       <div id="camHint" class="camhint">Brak obrazu</div>
     </div>
     <div class="roibar">
+      <button id="btnFind" class="find">Znajdź diody</button>
+    </div>
+    <div class="roibar">
       <button class="roisel on" data-ch="0"><i class="dot k0"></i>Ustaw kWh</button>
       <button class="roisel" data-ch="1"><i class="dot k1"></i>Ustaw kvarh</button>
       <button id="roiMinus" title="Mniejszy obszar">-</button>
       <button id="roiPlus" title="Większy obszar">+</button>
     </div>
-    <p class="hint">Dotknij diodę na podglądzie (albo przeciągnij prostokąt). Obszar ma obejmować samą diodę - ciasno, bez sąsiedniej diody i bez modułu z migającą diodą po prawej.</p>
+    <div id="findList" class="findlist"></div>
+    <p class="hint">"Znajdź diody" przez 5 s szuka małych czerwonych plam, które błyskają (50-300 ms), i sam ustawia obszary: lewa = kWh, środkowa = kvarh. Szybko migająca dioda modułu i odblaski są odrzucane. Ręcznie: dotknij diodę na podglądzie (albo przeciągnij prostokąt). Obszar ma obejmować samą diodę - ciasno, bez sąsiedniej diody i bez modułu z migającą diodą po prawej.</p>
     <div class="row">
       <label class="chk"><input type="checkbox" id="track"> Śledź diodę (korekta przesunięcia)</label>
       <span id="fps" class="mono">- fps</span>
     </div>
+    <div id="focusCtl" class="camctl"></div>
     <div id="camCtl" class="camctl"></div>
   </section>
 
@@ -99,6 +104,7 @@
     <label>Q zadane <input type="range" id="simQ" min="0" max="10" step="0.1" value="1.5"><span id="simQv" class="mono">1,5 kvar</span></label>
     <label>Długość błysku <input type="range" id="simDur" min="10" max="200" step="5" value="100"><span id="simDurv" class="mono">100 ms</span></label>
     <label class="chk"><input type="checkbox" id="simShake"> Drgania ręki (przesuwanie obrazu)</label>
+    <label class="chk"><input type="checkbox" id="simGlare"> Odblask lampy, refleks i migotanie światła</label>
     <p class="hint">Obraz z wirtualnego licznika przechodzi przez ten sam tor co kamera (ROI, detekcja, obliczenia). Po prawej miga szybka dioda modułu - nie może być liczona.</p>
   </section>
 
@@ -111,8 +117,9 @@
     <label>Maks. długość błysku [ms] <input type="number" id="maxPulse" value="300" min="20" max="2000" step="10" inputmode="numeric"></label>
     <label>Tłumienie przesłuchu (0 = wył.) <input type="range" id="xtalk" min="0" max="1.5" step="0.05" value="0.6"><span id="xtalkv" class="mono">0,60</span></label>
     <label>Sygnał
-      <select id="mode"><option value="luma">jasność (zalecane)</option><option value="red">kanał czerwony</option></select>
+      <select id="mode"><option value="led">czerwona dioda (zalecane)</option><option value="luma">jasność (stary tryb)</option></select>
     </label>
+    <p class="hint">Sygnał "czerwona dioda": liczy się tylko czerwień (R wyraźnie ponad G i B). Biały odblask lampy, refleks i prześwietlone białe piksele są pomijane - chyba że leżą w czerwonej poświacie (prześwietlony rdzeń świecącej diody). Impuls jest odrzucany, gdy rozjaśnia się cały kadr (cień, lampa, migotanie 50/100 Hz) albo pierścień wokół obszaru bardziej niż sam obszar (duża plama, krawędź).</p>
     <p class="hint">Tłumienie przesłuchu: impuls w jednym obszarze liczy się tylko, gdy jego skok jasności jest co najmniej tyle razy większy niż jednoczesny skok w drugim obszarze. Chroni przed poświatą sąsiedniej diody w szczelinie.</p>
   </section>
 
@@ -122,7 +129,8 @@
       <ol>
         <li>Postaw telefon na statywie lub oprzyj go stabilnie, 10-20 cm od licznika. Ręka przesuwa obraz i psuje pomiar.</li>
         <li>"Start kamery" - pozwól na dostęp do aparatu. Jeśli jest zoom, przybliż szczelinę z diodami.</li>
-        <li>Wybierz "Ustaw kWh" i dotknij lewej diody (pod napisem kWh), potem "Ustaw kvarh" i środkowej. Obszary mają być małe.</li>
+        <li>Naciśnij "Znajdź diody" i poczekaj 5 s (dioda musi w tym czasie mignąć). Albo ręcznie: "Ustaw kWh" i dotknij lewej diody, potem "Ustaw kvarh" i środkowej. Obszary mają być małe.</li>
+        <li>Ostrość: "Dotknij, by ustawić" i wskaż szczelinę z diodami, potem "Zablokuj", żeby ostrość nie pływała w trakcie pomiaru.</li>
         <li>Jeśli błysk prześwietla cały obraz, zmniejsz kompensację ekspozycji. Latarka zwykle szkodzi (odblaski).</li>
         <li>Obserwuj wykres sygnału - impuls ma wyraźnie przekraczać linię przerywaną. W razie potrzeby zmień czułość.</li>
       </ol>
