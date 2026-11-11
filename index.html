@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0e1116">
+<title>Licznik impulsów - moc z diod kWh i kvarh</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <h1>Licznik impulsów</h1>
+  <p class="sub">Moc czynna i bierna z diod kWh / kvarh przez aparat</p>
+</header>
+
+<main>
+  <section class="bar">
+    <button id="btnCam" class="primary">Start kamery</button>
+    <button id="btnSim">Symulacja</button>
+    <button id="btnStop" disabled>Stop</button>
+  </section>
+  <p id="status" class="status">Wybierz "Start kamery" i ustaw telefon nieruchomo przed licznikiem.</p>
+
+  <section class="camwrap">
+    <div id="cam" class="cam">
+      <video id="video" playsinline muted autoplay></video>
+      <canvas id="overlay"></canvas>
+      <div id="camHint" class="camhint">Brak obrazu</div>
+    </div>
+    <div class="roibar">
+      <button class="roisel on" data-ch="0"><i class="dot k0"></i>Ustaw kWh</button>
+      <button class="roisel" data-ch="1"><i class="dot k1"></i>Ustaw kvarh</button>
+      <button id="roiMinus" title="Mniejszy obszar">-</button>
+      <button id="roiPlus" title="Większy obszar">+</button>
+    </div>
+    <p class="hint">Dotknij diodę na podglądzie (albo przeciągnij prostokąt). Obszar ma obejmować samą diodę - ciasno, bez sąsiedniej diody i bez modułu z migającą diodą po prawej.</p>
+    <div class="row">
+      <label class="chk"><input type="checkbox" id="track"> Śledź diodę (korekta przesunięcia)</label>
+      <span id="fps" class="mono">- fps</span>
+    </div>
+    <div id="camCtl" class="camctl"></div>
+  </section>
+
+  <section class="cards">
+    <div class="card big k0b">
+      <div class="lbl">Moc czynna P</div>
+      <div class="val"><span id="pInst">-</span> <small>kW</small></div>
+      <div class="sm">średnia z <span class="nLbl">5</span>: <b id="pAvg">-</b> kW</div>
+      <div class="sm">impulsy: <b id="pCnt">0</b> · od ostatniego: <b id="pSince">-</b></div>
+      <div class="sm">T: <b id="pT">-</b> · energia: <b id="pE">0</b> kWh</div>
+      <div class="sm warn" id="pMax"></div>
+    </div>
+    <div class="card big k1b">
+      <div class="lbl">Moc bierna Q</div>
+      <div class="val"><span id="qInst">-</span> <small>kvar</small></div>
+      <div class="sm">średnia z <span class="nLbl">5</span>: <b id="qAvg">-</b> kvar</div>
+      <div class="sm">impulsy: <b id="qCnt">0</b> · od ostatniego: <b id="qSince">-</b></div>
+      <div class="sm">T: <b id="qT">-</b> · energia: <b id="qE">0</b> kvarh</div>
+      <div class="sm warn" id="qMax"></div>
+    </div>
+    <div class="card">
+      <div class="lbl">cos φ (z średnich)</div>
+      <div class="val mid"><span id="cos">-</span></div>
+      <div class="sm">S = <b id="sApp">-</b> kVA · tg φ = <b id="tg">-</b></div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>Sygnał diod na żywo</h2>
+    <div class="sig">
+      <div class="sighead"><i class="dot k0"></i>kWh <span class="mono" id="lvl0"></span><span class="flash" id="fl0"></span></div>
+      <canvas id="sig0" class="sigc"></canvas>
+      <label>Czułość kWh <input type="range" id="sens0" min="0" max="1" step="0.05" value="0.5"><span id="sens0v" class="mono">0,50</span></label>
+    </div>
+    <div class="sig">
+      <div class="sighead"><i class="dot k1"></i>kvarh <span class="mono" id="lvl1"></span><span class="flash" id="fl1"></span></div>
+      <canvas id="sig1" class="sigc"></canvas>
+      <label>Czułość kvarh <input type="range" id="sens1" min="0" max="1" step="0.05" value="0.5"><span id="sens1v" class="mono">0,50</span></label>
+    </div>
+    <p class="hint">Linia ciągła = tło, przerywana = próg załączenia, kropkowana = próg wyłączenia (histereza). Pionowe kreski = zaliczone impulsy.</p>
+  </section>
+
+  <section class="panel">
+    <h2>Moc w czasie</h2>
+    <canvas id="chart" class="chartc"></canvas>
+    <div class="legend"><span><i class="dot k0"></i>P [kW]</span><span><i class="dot k1"></i>Q [kvar]</span><span id="chartSpan" class="mono"></span></div>
+    <div class="bar">
+      <button id="btnCsv">Eksport CSV</button>
+      <button id="btnReset">Wyzeruj</button>
+    </div>
+  </section>
+
+  <section class="panel" id="simPanel" hidden>
+    <h2>Symulacja (wirtualne diody)</h2>
+    <label>P zadane <input type="range" id="simP" min="0" max="20" step="0.1" value="5"><span id="simPv" class="mono">5,0 kW</span></label>
+    <label>Q zadane <input type="range" id="simQ" min="0" max="10" step="0.1" value="1.5"><span id="simQv" class="mono">1,5 kvar</span></label>
+    <label>Długość błysku <input type="range" id="simDur" min="10" max="200" step="5" value="100"><span id="simDurv" class="mono">100 ms</span></label>
+    <label class="chk"><input type="checkbox" id="simShake"> Drgania ręki (przesuwanie obrazu)</label>
+    <p class="hint">Obraz z wirtualnego licznika przechodzi przez ten sam tor co kamera (ROI, detekcja, obliczenia). Po prawej miga szybka dioda modułu - nie może być liczona.</p>
+  </section>
+
+  <section class="panel">
+    <h2>Ustawienia</h2>
+    <label>Stała kWh [imp/kWh] <input type="number" id="cK" value="1000" min="1" step="1" inputmode="numeric"></label>
+    <label>Stała kvarh [imp/kvarh] <input type="number" id="cQ" value="1000" min="1" step="1" inputmode="numeric"></label>
+    <label>Średnia z N impulsów <input type="number" id="nAvg" value="5" min="1" max="100" step="1" inputmode="numeric"></label>
+    <label>Min. odstęp impulsów [ms] <input type="number" id="minInt" value="60" min="20" max="5000" step="10" inputmode="numeric"></label>
+    <label>Maks. długość błysku [ms] <input type="number" id="maxPulse" value="300" min="20" max="2000" step="10" inputmode="numeric"></label>
+    <label>Tłumienie przesłuchu (0 = wył.) <input type="range" id="xtalk" min="0" max="1.5" step="0.05" value="0.6"><span id="xtalkv" class="mono">0,60</span></label>
+    <label>Sygnał
+      <select id="mode"><option value="luma">jasność (zalecane)</option><option value="red">kanał czerwony</option></select>
+    </label>
+    <p class="hint">Tłumienie przesłuchu: impuls w jednym obszarze liczy się tylko, gdy jego skok jasności jest co najmniej tyle razy większy niż jednoczesny skok w drugim obszarze. Chroni przed poświatą sąsiedniej diody w szczelinie.</p>
+  </section>
+
+  <section class="panel">
+    <details>
+      <summary>Jak używać i jak to liczy</summary>
+      <ol>
+        <li>Postaw telefon na statywie lub oprzyj go stabilnie, 10-20 cm od licznika. Ręka przesuwa obraz i psuje pomiar.</li>
+        <li>"Start kamery" - pozwól na dostęp do aparatu. Jeśli jest zoom, przybliż szczelinę z diodami.</li>
+        <li>Wybierz "Ustaw kWh" i dotknij lewej diody (pod napisem kWh), potem "Ustaw kvarh" i środkowej. Obszary mają być małe.</li>
+        <li>Jeśli błysk prześwietla cały obraz, zmniejsz kompensację ekspozycji. Latarka zwykle szkodzi (odblaski).</li>
+        <li>Obserwuj wykres sygnału - impuls ma wyraźnie przekraczać linię przerywaną. W razie potrzeby zmień czułość.</li>
+      </ol>
+      <p><b>Wzór:</b> P [kW] = 3600 / (stała [imp/kWh] · T [s]), gdzie T to czas między kolejnymi impulsami. Przy 1000 imp/kWh: P = 3,6 / T. Q liczone tak samo z diody kvarh.</p>
+      <p><b>Brak impulsu:</b> jeśli od ostatniego impulsu minęło t sekund, moc nie może być większa niż 3600 / (stała · t) - aplikacja pokazuje tę górną granicę.</p>
+      <p><b>cos φ</b> = P / √(P² + Q²), liczony ze średnich. <b>Uwaga:</b> dioda kvarh może sumować energię bierną indukcyjną i pojemnościową (zależnie od konfiguracji licznika), więc Q nie mówi o znaku (charakterze) mocy biernej, a cos φ jest wtedy tylko orientacyjny.</p>
+      <p><b>Dokładność:</b> czas impulsu ma rozdzielczość około jednej klatki (interpolowana). Przy 30 fps i T = 0,7 s błąd pojedynczego pomiaru to kilka %, średnia z N impulsów go zmniejsza. Błysk ok. 100 ms to 2-3 klatki przy 30 fps - wystarczy. Błyski krótsze niż czas klatki mogą być gubione.</p>
+    </details>
+  </section>
+</main>
+
+<footer>Autor: Robert Kołodziejczyk</footer>
+
+<script src="detector.js"></script>
+<script src="sim.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
