@@ -1,6 +1,7 @@
 // Test UI w Chrome (widok telefonu): symulacja + fałszywa kamera z filmu. node tests/ui-test.mjs <baseUrl> <outDir> [y4m]
 import { chromium } from 'playwright-core';
 import fs from 'node:fs';
+import { layoutChecks } from './layout-test.mjs';
 const [, , base = 'http://localhost:8765/', out = '../zrzuty', y4m] = process.argv;
 fs.mkdirSync(out, { recursive: true });
 let fail = 0;
@@ -204,7 +205,7 @@ await p4.waitForTimeout(400);
 await p4.goto(base + '?sim=1&P=5&Q=1.5&track=0');
 check('stan sekcji zapamiętany', await p4.evaluate(() => document.getElementById('secHow').open && !document.getElementById('secSet').open && document.getElementById('secSig').open));
 await p4.click('#secHow summary');
-await p4.waitForTimeout(6000);
+await p4.waitForFunction(() => window.__licznik.records().filter(r => r.ch === 0).length >= 4, null, { timeout: 25000 }).catch(() => {});
 const nRec = await p4.evaluate(() => window.__licznik.records().length);
 const [dl4] = await Promise.all([p4.waitForEvent('download', { timeout: 5000 }), p4.click('#lnkCmp')]);
 await p4.waitForTimeout(200);
@@ -225,6 +226,9 @@ const back = await p4.evaluate(() => ({ vis: !document.getElementById('savedSes'
 check('powrót: zapisany pomiar dostępny z sumą energii (Pobierz CSV / Porównaj)', back.vis && /impulsów kWh - suma \d+,\d{3} kWh/.test(back.t), back.t);
 check('auto-eksport: brak błędów JS', e4.length === 0, e4.join(' | '));
 await b4.close();
+
+// 6c) układ na telefonach (iPhone SE/15/Pro Max/Duo, Galaxy Z Flip6): bez nakładania i poziomego przewijania
+await layoutChecks(base, out, check);
 
 // 7) strona porównania z eLicznikiem Tauron (sztuczne dane przykładowe)
 const b3 = await chromium.launch({ executablePath: '/usr/bin/google-chrome', headless: true });
