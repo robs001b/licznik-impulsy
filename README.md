@@ -13,12 +13,23 @@ P [kW] = 3600 / (stała [imp/kWh] · T [s]), Q [kvar] analogicznie, cos φ = P /
 - Zoom, kompensacja / czas ekspozycji, latarka - jeśli aparat je udostępnia. Wake Lock.
 - Wykres mocy, eksport CSV (separator `;`, przecinek dziesiętny), tryb symulacji.
 
+## Porównanie z eLicznikiem Tauron (`porownanie.html`)
+
+Strona działa lokalnie w przeglądarce - pliki nie są nigdzie wysyłane.
+
+1. Zmierz zużycie aplikacją (najlepiej przez pełne godziny) i zrób "Eksport CSV" - plik zawiera czas każdego impulsu (lokalny i UTC) oraz wiersze `start`/`koniec` pomiaru.
+2. Następnego dnia pobierz z eLicznika dane godzinowe (Energia → Zakres DZIEŃ → "Pobierz dane" → godzinowe, pobór, CSV).
+3. Wczytaj oba pliki na stronie porównania. Dla każdej godziny: kWh z Taurona, kWh z aplikacji, różnica w kWh i %, podsumowanie, wykres słupkowy i eksport CSV porównania.
+
+Szczegóły: godzina w pliku Taurona oznacza koniec okresu (`1:00` = 0:00-1:00, `24:00` = 23:00-24:00); czas Europe/Warsaw ze zmianą czasu (dni 23/25 godzin); plik UTF-8 lub Windows-1250, BOM, CRLF, spacje i `;` na końcu są tolerowane. Energia impulsu (1/stała) jest rozkładana na odcinek od poprzedniego impulsu; godziny zmierzone tylko częściowo są porównywane z proporcjonalną częścią wartości Taurona. Przerwy > 30 min bez impulsów nie są liczone. W katalogu `przyklad/` są sztuczne pliki demonstracyjne.
+
 Uwaga: dioda kvarh może sumować energię bierną indukcyjną i pojemnościową - Q nie mówi o charakterze mocy biernej.
 
 ## Testy
 ```
 node tests/detector-test.js            # logika detekcji na sztucznych przebiegach
 node tests/scene-test.js               # sztuczne klatki obrazu: odblask, migotanie 100 Hz, cień, moduł, refleks
+node tests/compare-test.js             # parser eLicznika, eksport aplikacji, zmiana czasu, porównanie
 node tests/film-test.js film.mp4       # offline na filmie (ffmpeg); FPS=30 symuluje wolniejszą kamerę
 cd tests && npm i && node ui-test.mjs http://localhost:8765/ ../zrzuty [film.y4m]
 ```

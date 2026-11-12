@@ -79,3 +79,27 @@ footer{text-align:center;color:var(--mu);font-size:.85rem;padding:16px 10px 28px
 .rbfoot .warn{margin-left:8px}
 .pin{margin:6px 2px 0;font-size:.85rem}
 .cardsh{margin:4px 2px 0;font-size:.95rem;color:var(--mu)}
+a{color:#58a6ff}.lnk{font-weight:600}
+/* porównanie z eLicznikiem */
+.back{margin:0 0 4px;font-size:.9rem}
+.panel ol{padding-left:20px;margin:8px 0}
+label.file{display:block;margin:8px 0 2px;font-size:.92rem}
+label.file input{display:block;width:100%;margin-top:4px;color:var(--mu);font-size:.85rem}
+label.row{display:flex;align-items:center;gap:8px;margin:10px 0;font-size:.92rem}
+label.row select{margin-left:auto;padding:8px}
+.fstat{margin:0 2px 4px;color:var(--mu);font-size:.8rem}
+.fstat.ok{color:var(--ok)}
+.sumgrid{display:grid;grid-template-columns:1fr 1fr;gap:6px 10px;margin:6px 0}
+.sumgrid div{background:var(--pn2);border-radius:10px;padding:6px 8px}
+.sumgrid b{display:block;font-size:1.1rem}
+.sumgrid span{color:var(--mu);font-size:.75rem}
+.legend{font-size:.78rem;color:var(--mu);margin:0 0 6px}
+.dot.tau{background:#58a6ff}.dot.app{background:var(--ok);margin-left:8px}
+.hatch{display:inline-block;width:14px;height:10px;margin:0 4px 0 8px;vertical-align:middle;background:repeating-linear-gradient(45deg,#58a6ff 0 2px,transparent 2px 5px);border:1px solid #58a6ff}
+#chart{width:100%;display:block}
+.hlist{display:flex;flex-direction:column;gap:6px}
+.hrow{background:var(--pn2);border-radius:10px;padding:6px 10px;border-left:4px solid var(--ok)}
+.hrow.part{border-left-color:var(--k1)}
+.hrow .h1{display:flex;justify-content:space-between;font-size:.85rem;color:var(--mu)}
+.hrow .h2{display:flex;justify-content:space-between;gap:6px;font-size:.92rem;margin-top:2px}
+.pos{color:#ffb020}.neg{color:#ff7b72}.okc{color:var(--ok)}

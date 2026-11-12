@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0e1116">
+<title>Porównanie z eLicznikiem Tauron - Licznik impulsów</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <p class="back"><a href="index.html" id="lnkBack">← Wróć do pomiaru</a></p>
+  <h1>Porównanie z eLicznikiem Tauron</h1>
+  <p class="sub">Godzinowe zużycie z aplikacji kontra dane z licznika. Pliki są czytane tylko w przeglądarce - nic nie jest wysyłane.</p>
+</header>
+
+<main>
+  <section class="panel">
+    <details id="howto">
+      <summary>Jak pobrać plik z eLicznika Tauron</summary>
+      <ol>
+        <li>Zaloguj się do eLicznika (elicznik.tauron-dystrybucja.pl) i wybierz punkt poboru.</li>
+        <li>Menu (☰) → <b>Energia</b>.</li>
+        <li>Zakres danych: <b>DZIEŃ</b> i wybierz dzień pomiaru.</li>
+        <li>Przycisk <b>„Pobierz dane”</b>.</li>
+        <li>W oknie: zakres dat (ten sam dzień lub kilka dni), Pobierz dane: <b>godzinowe</b>, Rodzaj danych: <b>pobór</b>, Format: <b>CSV</b> → „Pobierz”.</li>
+        <li>Wczytaj ten plik tutaj obok eksportu z aplikacji (przycisk „Eksport CSV” na stronie pomiaru).</li>
+      </ol>
+      <p><b>Wskazówki:</b> dane w eLiczniku zwykle pojawiają się z opóźnieniem (następnego dnia). Godzina w pliku oznacza <b>koniec</b> okresu: „1:00” to 0:00-1:00, „24:00” to 23:00-24:00. Najlepiej mierzyć aplikacją przez pełne godziny (np. 18:00-21:00), wtedy porównanie jest najdokładniejsze.</p>
+    </details>
+  </section>
+
+  <section class="panel">
+    <h2>Pliki</h2>
+    <label class="file">Eksport z aplikacji (CSV)<input type="file" id="fApp" accept=".csv,text/csv,text/plain"></label>
+    <p class="fstat" id="sApp">nie wczytano</p>
+    <label class="file">Plik z eLicznika Tauron (CSV)<input type="file" id="fTau" accept=".csv,text/csv,text/plain"></label>
+    <p class="fstat" id="sTau">nie wczytano</p>
+    <label class="row">Rodzaj danych Tauron <select id="kind"><option value="pobór">pobór</option></select></label>
+    <div class="bar">
+      <button id="btnDemo">Wczytaj przykład</button>
+      <button id="btnCsvCmp" disabled>Eksport porównania CSV</button>
+    </div>
+    <p id="status" class="status"></p>
+  </section>
+
+  <section id="out" hidden>
+    <section class="panel" id="sumBox"></section>
+    <section class="panel">
+      <h2>Godziny</h2>
+      <p class="legend"><span class="dot tau"></span>Tauron <span class="dot app"></span>Aplikacja <span class="hatch"></span>niepełna godzina (Tauron proporcjonalnie)</p>
+      <canvas id="chart" height="220"></canvas>
+    </section>
+    <section class="panel">
+      <h2>Lista godzin</h2>
+      <div id="list" class="hlist"></div>
+      <p class="hint">Godzina niepełna: aplikacja mierzyła tylko część godziny - porównujemy z proporcjonalną częścią wartości z Taurona (zakładając równomierny pobór), a w nawiasie podajemy szacunek aplikacji na całą godzinę.</p>
+    </section>
+  </section>
+</main>
+
+<footer>Autor: Robert Kołodziejczyk</footer>
+
+<script src="compare.js"></script>
+<script src="porownanie.js"></script>
+</body>
+</html>

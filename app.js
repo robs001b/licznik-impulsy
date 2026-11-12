@@ -218,6 +218,7 @@
     requestWake();
   }
   function stop() {
+    if (running && session && !session.end) session.end = Date.now();
     running = false; loopGen++; finding = null; clearInterval(focusTimer);
     if ($('btnFind')) { $('btnFind').disabled = false; $('btnFind').textContent = 'Znajdź diody'; }
     if (sim) { sim.stop(); sim = null; }
@@ -236,7 +237,9 @@
 
   function resetMeasure() {
     det.reset(); calc.reset(); records = []; samples = [[], []]; marks = [[], []]; startPerf = null; startWall = null;
+    session = { start: Date.now(), end: null };
   }
+  var session = { start: Date.now(), end: null }; // granice pomiaru do eksportu (porównanie z eLicznikiem)
 
   /* ---------- sterowanie aparatem ---------- */
   function buildCamControls() {
@@ -535,10 +538,15 @@
   function exportCsv() {
     if (!records.length) { status('Brak impulsów do eksportu.', true); return; }
     var c = function (x, d) { return x == null || !isFinite(x) ? '' : x.toFixed(d).replace('.', ','); };
-    var L = ['czas;czas_od_startu_s;typ;T_s;wartosc;jednostka;srednia_N;stala_imp'];
+    // czas_utc (ISO) - jednoznaczny przy zmianie czasu; wiersze start/koniec - granice pomiaru
+    var L = ['czas;czas_od_startu_s;typ;T_s;wartosc;jednostka;srednia_N;stala_imp;czas_utc'];
+    var t0 = startWall != null ? startWall : session.start;
+    var mark = function (typ, w) { L.push([stamp(new Date(w), true), c((w - t0) / 1000, 3), typ, '', '', '', '', '', new Date(w).toISOString()].join(';')); };
+    mark('start', session.start);
     records.forEach(function (r) {
-      L.push([stamp(new Date(r.wall), true), c(r.rel, 3), NAMES[r.ch], c(r.T, 3), c(r.val, 4), UNITS[r.ch], c(r.avg, 4), r.ch ? cfg.cQ : cfg.cK].join(';'));
+      L.push([stamp(new Date(r.wall), true), c(r.rel, 3), NAMES[r.ch], c(r.T, 3), c(r.val, 4), UNITS[r.ch], c(r.avg, 4), r.ch ? cfg.cQ : cfg.cK, new Date(r.wall).toISOString()].join(';'));
     });
+    mark('koniec', session.end || Date.now());
     L.push(''); L.push('Wygenerował: ' + stamp(new Date(), false));
     var blob = new Blob(['\ufeff' + L.join('\r\n')], { type: 'text/csv;charset=utf-8' });
     var a = document.createElement('a'), d = new Date();
