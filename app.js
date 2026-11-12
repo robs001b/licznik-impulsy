@@ -150,6 +150,7 @@
     var rec = calc.add(p.ch, p.t);
     rec.wall = startWall + (p.t - startPerf); rec.rel = (p.t - startPerf) / 1000; rec.dur = p.dur;
     records.push(rec);
+    if (records.length === 1) $('savedSes').hidden = true;
     marks[p.ch].push(p.t);
     if (cfg.track && peakCentroid[p.ch]) {
       var r = rois()[p.ch], c = peakCentroid[p.ch];
@@ -237,7 +238,7 @@
 
   function resetMeasure() {
     det.reset(); calc.reset(); records = []; samples = [[], []]; marks = [[], []]; startPerf = null; startWall = null;
-    session = { start: Date.now(), end: null };
+    session = { start: Date.now(), end: null }; exportedN = 0; savedN = 0;
   }
   var session = { start: Date.now(), end: null }; // granice pomiaru do eksportu (porównanie z eLicznikiem)
 
@@ -535,8 +536,7 @@
     if (ms) s += '.' + String(d.getMilliseconds()).padStart(3, '0');
     return s;
   }
-  function exportCsv() {
-    if (!records.length) { status('Brak impulsów do eksportu.', true); return; }
+  function buildCsv() {
     var c = function (x, d) { return x == null || !isFinite(x) ? '' : x.toFixed(d).replace('.', ','); };
     // czas_utc (ISO) - jednoznaczny przy zmianie czasu; wiersze start/koniec - granice pomiaru
     var L = ['czas;czas_od_startu_s;typ;T_s;wartosc;jednostka;srednia_N;stala_imp;czas_utc'];
@@ -548,13 +548,61 @@
     });
     mark('koniec', session.end || Date.now());
     L.push(''); L.push('Wygenerował: ' + stamp(new Date(), false));
-    var blob = new Blob(['\ufeff' + L.join('\r\n')], { type: 'text/csv;charset=utf-8' });
-    var a = document.createElement('a'), d = new Date();
-    a.href = URL.createObjectURL(blob);
-    a.download = 'impulsy-' + d.getFullYear() + pad2(d.getMonth() + 1) + pad2(d.getDate()) + '-' + pad2(d.getHours()) + pad2(d.getMinutes()) + '.csv';
+    var d = new Date(session.start);
+    return { text: '\ufeff' + L.join('\r\n'), name: 'impulsy-' + d.getFullYear() + pad2(d.getMonth() + 1) + pad2(d.getDate()) + '-' + pad2(d.getHours()) + pad2(d.getMinutes()) + '.csv' };
+  }
+  function download(text, name) {
+    var blob = new Blob([text], { type: 'text/csv;charset=utf-8' }), a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = name;
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(function () { URL.revokeObjectURL(a.href); }, 5000);
   }
+  function exportCsv() {
+    if (!records.length) { status('Brak impulsów do eksportu.', true); return; }
+    var f = buildCsv(); download(f.text, f.name);
+    exportedN = records.length; saveSession(f);
+    return f;
+  }
+
+  /* ---------- zabezpieczenie danych sesji (localStorage) - powrót ze strony porównania ich nie gubi ---------- */
+  var SES = 'licznik-impulsy-sesja', exportedN = 0, savedN = 0, savedAt = 0;
+  function saveSession(f) {
+    if (!records.length) return false;
+    f = f || buildCsv();
+    var n0 = records.filter(function (r) { return r.ch === 0; }).length;
+    try { localStorage.setItem(SES, JSON.stringify({ csv: f.text, name: f.name, n: records.length, nk: n0, start: session.start, end: session.end || Date.now(), saved: Date.now() })); savedN = records.length; savedAt = Date.now(); return true; }
+    catch (e) { return false; }
+  }
+  function autoSave() { if (records.length && records.length !== savedN && Date.now() - savedAt > 5000) saveSession(); }
+  setInterval(autoSave, 5000);
+  window.addEventListener('pagehide', function () { if (records.length && records.length !== savedN) saveSession(); });
+  document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'hidden' && records.length && records.length !== savedN) saveSession(); });
+  window.addEventListener('beforeunload', function (e) {
+    if (records.length > exportedN && !leaving) { saveSession(); e.preventDefault(); e.returnValue = ''; }
+  });
+  var leaving = false;
+  function hm(t) { var d = new Date(t); return pad2(d.getHours()) + ':' + pad2(d.getMinutes()); }
+  function showSaved() {
+    var raw = null; try { raw = JSON.parse(localStorage.getItem(SES) || 'null'); } catch (e) {}
+    var box = $('savedSes');
+    if (!raw || !raw.csv || records.length) { box.hidden = true; return; }
+    var d = new Date(raw.start);
+    $('savedTxt').textContent = 'Zapisany pomiar: ' + d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()) + ' ' + hm(raw.start) + '-' + hm(raw.end) + ', ' + raw.nk + ' impulsów kWh.';
+    box.hidden = false;
+    $('savedDl').onclick = function () { download(raw.csv, raw.name || 'impulsy.csv'); };
+    $('savedDel').onclick = function () { try { localStorage.removeItem(SES); } catch (e) {} box.hidden = true; };
+  }
+  $('lnkCmp').addEventListener('click', function (e) {
+    if (!records.length) return; // bez danych - zwykły link
+    e.preventDefault();
+    if (running) stop();
+    var f = records.length > exportedN ? exportCsv() : (saveSession(), null);
+    status(f ? 'Zapisano eksport CSV (' + f.name + ') - wczytaj go na stronie porównania. Dane tej sesji są też dostępne tam od razu.' : 'Eksport był już zapisany - dane tej sesji są dostępne na stronie porównania.');
+    var t = $('toast'); t.textContent = f ? 'Zapisano eksport CSV - wczytaj go na stronie porównania. Przechodzę...' : 'Przechodzę do porównania...'; t.hidden = false;
+    leaving = true;
+    var href = 'porownanie.html?sesja=1';
+    setTimeout(function () { location.href = href; }, f ? 1500 : 300);
+  });
 
   /* ---------- ustawienia ---------- */
   function bindNum(id, key, after) {
@@ -616,5 +664,15 @@
 
   if (q.get('find')) setTimeout(function wait() { if (running && video.videoWidth) startFind(); else setTimeout(wait, 200); }, Number(q.get('find')) || 800);
   if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(function () {});
+  // zwijane sekcje: domyślnie zwinięte, stan zapamiętany
+  (function () {
+    var KEY = 'licznik-impulsy-sekcje', st = {};
+    try { st = JSON.parse(localStorage.getItem(KEY) || '{}') || {}; } catch (e) {}
+    document.querySelectorAll('details.sec').forEach(function (d) {
+      d.open = !!st[d.id];
+      d.addEventListener('toggle', function () { st[d.id] = d.open; try { localStorage.setItem(KEY, JSON.stringify(st)); } catch (e) {} });
+    });
+  })();
+  showSaved();
   window.__licznik = { records: function () { return records; }, calc: calc, det: det, rois: rois, fps: function () { return fps; } };
 })();

@@ -34,6 +34,7 @@
 
   <section class="panel">
     <h2>Pliki</h2>
+    <div id="sesBox" class="sesbox" hidden><p id="sesTxt"></p><button id="btnSes">Użyj danych z tej sesji</button></div>
     <label class="file">Eksport z aplikacji (CSV)<input type="file" id="fApp" accept=".csv,text/csv,text/plain"></label>
     <p class="fstat" id="sApp">nie wczytano</p>
     <label class="file">Plik z eLicznika Tauron (CSV)<input type="file" id="fTau" accept=".csv,text/csv,text/plain"></label>
@@ -61,7 +62,17 @@
   </section>
 </main>
 
-<footer>Autor: Robert Kołodziejczyk</footer>
+<footer>
+  <aside class="support" aria-label="Wsparcie">
+    <div class="sup-ico" aria-hidden="true">🍺</div>
+    <div class="sup-body">
+      <p class="sup-h">Bez reklam, bez śledzenia, bez opłat</p>
+      <p class="sup-t">Aplikacja jest i będzie darmowa. Nie ma tu reklam, bo nikt ich nie lubi - a wszystko działa na Twoim telefonie. Jeśli Ci pomogła i chcesz wesprzeć dalszy rozwój, postaw mi piwo. Dzięki! 🙂</p>
+      <a class="beer" id="lnkBeer" href="https://buycoffee.to/robs001b" target="_blank" rel="noopener noreferrer">Postaw piwo 🍺</a>
+    </div>
+  </aside>
+  <p class="author">Autor: Robert Kołodziejczyk</p>
+</footer>
 
 <script src="compare.js"></script>
 <script src="porownanie.js"></script>

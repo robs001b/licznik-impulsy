@@ -127,8 +127,19 @@
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(function () { URL.revokeObjectURL(a.href); }, 5000);
   };
+  // dane ostatniego pomiaru zapisane przez stronę główną (localStorage) - bez wczytywania pliku
+  var ses = null;
+  try { ses = JSON.parse(localStorage.getItem('licznik-impulsy-sesja') || 'null'); } catch (e) {}
+  if (ses && ses.csv) {
+    var sd = new Date(ses.start), p2s = function (n) { return (n < 10 ? '0' : '') + n; };
+    var hm = function (t) { var d = new Date(t); return p2s(d.getHours()) + ':' + p2s(d.getMinutes()); };
+    $('sesTxt').textContent = 'Pomiar z tej przeglądarki: ' + sd.getFullYear() + '-' + p2s(sd.getMonth() + 1) + '-' + p2s(sd.getDate()) + ' ' + hm(ses.start) + '-' + hm(ses.end) + ', ' + ses.nk + ' impulsów kWh.';
+    $('sesBox').hidden = false;
+    $('btnSes').onclick = function () { setApp(ses.csv, 'dane z tej sesji (' + (ses.name || 'pomiar') + ')'); };
+    if (/[?&]sesja=1/.test(location.search)) $('btnSes').click();
+  }
   window.addEventListener('resize', function () { if (res && res.rows.length) drawChart(); });
   window.__cmp = function () { return res; };
   if (/[?&]demo=1/.test(location.search)) $('btnDemo').click();
-  status('Wczytaj oba pliki albo „Wczytaj przykład”.');
+  if (!app) status('Wczytaj oba pliki albo „Wczytaj przykład”.');
 })();

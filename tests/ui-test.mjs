@@ -10,9 +10,11 @@ if (y4m) args.push('--use-file-for-fake-video-capture=' + y4m);
 const browser = await chromium.launch({ executablePath: '/usr/bin/google-chrome', headless: true, args });
 const ctx = await browser.newContext({ viewport: { width: 412, height: 915 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true, permissions: ['camera'], acceptDownloads: true });
 const page = await ctx.newPage();
+page.on('dialog', d => d.accept()); // ostrzeżenie beforeunload przy niezapisanych danych
+const openAll = pg => pg.evaluate(() => document.querySelectorAll('details.sec').forEach(d => { d.open = true; }));
 const errs = []; page.on('pageerror', e => errs.push(e.message)); page.on('console', m => { if (m.type() === 'error') errs.push(m.text()); });
-async function camShot(pg, path) { // podgląd + panel kamery (dwa sąsiednie bloki)
-  const a = await pg.evaluate(() => { const s = document.getElementById('stick').getBoundingClientRect(), c = document.querySelector('.camwrap').getBoundingClientRect(); return { x: s.left, y: s.top + scrollY, w: s.width, h: c.bottom - s.top }; });
+async function camShot(pg, path, sel = '.camwrap') { // podgląd + blok pod nim
+  const a = await pg.evaluate(sel => { const s = document.getElementById('stick').getBoundingClientRect(), c = document.querySelector(sel).getBoundingClientRect(); return { x: s.left, y: s.top + scrollY, w: s.width, h: c.bottom - s.top }; }, sel);
   await pg.screenshot({ path, fullPage: true, clip: { x: a.x, y: a.y, width: a.w, height: a.h } });
 }
 const stats = () => page.evaluate(() => { const L = window.__licznik, n = performance.now(); return { s0: L.calc.stats(0, n), s1: L.calc.stats(1, n), fps: L.fps(), rec: L.records().length }; });
@@ -25,8 +27,9 @@ check('symulacja: P średnie ≈ 5 kW (±3%)', Math.abs(s.s0.avg / 5 - 1) < 0.03
 check('symulacja: Q średnie ≈ 1,5 kvar (±3%)', Math.abs(s.s1.avg / 1.5 - 1) < 0.03, `Q=${s.s1.avg?.toFixed(3)} kvar, impulsy ${s.s1.count}`);
 await page.screenshot({ path: out + '/01-symulacja-gora.png' });
 await page.screenshot({ path: out + '/02-symulacja-cala-strona.png', fullPage: true });
-await page.locator('.panel').nth(0).screenshot({ path: out + '/03-sygnal-diod.png' });
-await page.locator('.panel').nth(1).screenshot({ path: out + '/04-wykres-mocy.png' });
+await openAll(page); await page.waitForTimeout(800);
+await page.locator('#secDet').screenshot({ path: out + '/03-sygnal-diod.png' });
+await page.locator('#secHist').screenshot({ path: out + '/04-wykres-mocy.png' });
 const [dl] = await Promise.all([page.waitForEvent('download'), page.click('#btnCsv')]);
 const csvPath = out + '/../tests/out-eksport.csv'; await dl.saveAs(csvPath);
 const csv = fs.readFileSync(csvPath, 'utf8');
@@ -34,6 +37,7 @@ check('CSV: nagłówek, wiersze, stopka bez autora', csv.includes('czas;czas_od_
 check('CSV: czas_utc oraz wiersze start/koniec (do porównania z eLicznikiem)', /;czas_utc\r?\n/.test(csv) && /;start;/.test(csv) && /;koniec;/.test(csv) && /\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z/.test(csv));
 check('link do porównania na stronie głównej', (await page.getAttribute('#lnkCmp', 'href')) === 'porownanie.html');
 const html = await page.content();
+check('stopka: link „Postaw piwo” (buycoffee.to, nowa karta, noopener)', (await page.evaluate(() => { const a = document.getElementById('lnkBeer'); return !!a && a.href === 'https://buycoffee.to/robs001b' && a.target === '_blank' && a.rel === 'noopener noreferrer' && !!a.closest('footer') && !a.closest('#stick, .camwrap'); })));
 check('stopka "Autor: Robert Kołodziejczyk" dokładnie raz', (html.match(/Autor: Robert Kołodziejczyk/g) || []).length === 1);
 check('brak długiego myślnika w treści', !(await page.evaluate(() => document.body.innerText)).includes('\u2014'));
 
@@ -72,6 +76,7 @@ await page.waitForTimeout(9000);
 let lay = await page.evaluate(() => { const c = document.getElementById('cam').getBoundingClientRect(), r = document.getElementById('resbar').getBoundingClientRect(); return { camTop: c.top, camH: c.height, resBottom: r.bottom, p: document.getElementById('bpInst').textContent, q: document.getElementById('bqInst').textContent, cos: document.getElementById('bCos').textContent }; });
 check('412x900: kamera i pasek wyników widoczne bez przewijania (symulacja)', lay.resBottom <= 900 && lay.camH > 150 && lay.p !== '-' && lay.q !== '-' && lay.cos !== '-', JSON.stringify(lay));
 await page.screenshot({ path: out + '/10-uklad-telefon.png' });
+await openAll(page); await page.waitForTimeout(300);
 await page.evaluate(() => window.scrollTo(0, 1600));
 await page.waitForTimeout(400);
 lay = await page.evaluate(() => { const r = document.getElementById('resbar').getBoundingClientRect(), c = document.getElementById('cam').getBoundingClientRect(); return { camTop: c.top, resBottom: r.bottom }; });
@@ -132,6 +137,7 @@ await c2.addInitScript(() => {
 const p2 = await c2.newPage();
 const e2 = []; p2.on('pageerror', e => e2.push(e.message));
 await p2.goto(base + '?cam=1');
+await openAll(p2);
 await p2.waitForTimeout(2500);
 let ap = await p2.evaluate(() => window.__applied);
 check('ostrość: po starcie focusMode continuous', ap.some(a => a.focusMode === 'continuous'));
@@ -149,10 +155,59 @@ const lk = ap[ap.length - 1];
 check('ostrość: Zablokuj -> focusMode manual z bieżącą odległością', lk.focusMode === 'manual' && lk.focusDistance === 0.16, JSON.stringify(lk));
 const fst = await p2.textContent('#focusStat');
 check('ostrość: status pokazuje blokadę', /zablokowana/.test(fst), fst);
-await p2.evaluate(() => document.getElementById('focusCtl').scrollIntoView({ block: 'center' }));
-await camShot(p2, out + '/08-fokus.png');
+await p2.evaluate(() => { document.getElementById('pin').checked = false; document.getElementById('pin').dispatchEvent(new Event('change')); window.scrollTo(0, 0); });
+await p2.waitForTimeout(300);
+await camShot(p2, out + '/08-fokus.png', '#secCam');
 check('ostrość: brak błędów JS', e2.length === 0, e2.join(' | '));
 await b2.close();
+// 6b) strona główna zwinięta + link do porównania z danymi: automatyczny eksport CSV i przejście
+const b4 = await chromium.launch({ executablePath: '/usr/bin/google-chrome', headless: true });
+const c4 = await b4.newContext({ viewport: { width: 412, height: 900 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true, acceptDownloads: true });
+const p4 = await c4.newPage();
+const e4 = []; p4.on('pageerror', e => e4.push(e.message)); p4.on('dialog', d => d.accept());
+await p4.goto(base);
+await p4.click('#lnkCmp'); // bez danych - zwykły link
+await p4.waitForURL(/porownanie\.html$/, { timeout: 5000 }).catch(() => {});
+check('link bez danych: zwykłe przejście', /porownanie\.html$/.test(p4.url()), p4.url());
+await p4.goto(base + '?sim=1&P=5&Q=1.5&track=0');
+await p4.waitForTimeout(7000);
+const top = await p4.evaluate(() => {
+  const vis = id => { const e = document.getElementById(id); if (!e || e.closest('details:not([open])')) return false; const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
+  return { closed: [...document.querySelectorAll('details.sec')].every(d => !d.open), n: document.querySelectorAll('details.sec').length,
+    cam: vis('cam'), res: vis('resbar'), start: vis('btnCam'), stop: vis('btnStop'), find: vis('btnFind'), csv: vis('btnCsv'), cmp: vis('lnkCmp'),
+    hidden: !vis('cK') && !vis('focusCtl') && !vis('chart') && !vis('sig0'), h: document.documentElement.scrollHeight,
+    cmpBottom: document.getElementById('lnkCmp').getBoundingClientRect().bottom };
+});
+check('strona główna: sekcje domyślnie zwinięte, na wierzchu kamera, wyniki, Start/Stop, Znajdź diody, Eksport CSV, porównanie', top.closed && top.n >= 6 && top.cam && top.res && top.start && top.stop && top.find && top.csv && top.cmp && top.hidden, JSON.stringify(top));
+check('412x900: przyciski i link do porównania bez przewijania', top.cmpBottom <= 900, 'dół linku ' + Math.round(top.cmpBottom));
+await p4.screenshot({ path: out + '/15-strona-glowna-zwinieta.png' });
+await p4.click('#secHow summary');
+await p4.waitForTimeout(400);
+await p4.goto(base + '?sim=1&P=5&Q=1.5&track=0');
+check('stan sekcji zapamiętany', await p4.evaluate(() => document.getElementById('secHow').open && !document.getElementById('secSet').open));
+await p4.click('#secHow summary');
+await p4.waitForTimeout(6000);
+const nRec = await p4.evaluate(() => window.__licznik.records().length);
+const [dl4] = await Promise.all([p4.waitForEvent('download', { timeout: 5000 }), p4.click('#lnkCmp')]);
+await p4.waitForTimeout(200);
+const st4 = await p4.textContent('#status');
+const stopped = await p4.evaluate(() => document.getElementById('btnStop').disabled && !document.getElementById('toast').hidden && /Zapisano eksport CSV/.test(document.getElementById('toast').textContent));
+await p4.screenshot({ path: out + '/14-auto-eksport.png' });
+const autoPath = out + '/../tests/out-auto-eksport.csv'; await dl4.saveAs(autoPath);
+const autoCsv = fs.readFileSync(autoPath, 'utf8');
+check('link z danymi: automatyczny eksport CSV (ten sam format)', /^impulsy-\d{8}-\d{4}\.csv$/.test(dl4.suggestedFilename()) && autoCsv.includes('czas;czas_od_startu_s;typ;T_s') && /;koniec;/.test(autoCsv) && (autoCsv.match(/;kWh;/g) || []).length >= 3, dl4.suggestedFilename() + ', impulsów ' + nRec);
+check('link z danymi: pomiar zatrzymany, komunikat (status + dymek)', stopped && /Zapisano eksport CSV/.test(st4), st4);
+await p4.waitForURL(/porownanie\.html\?sesja=1/, { timeout: 5000 });
+await p4.waitForFunction(() => /dane z tej sesji/.test(document.getElementById('sApp').textContent), null, { timeout: 5000 }).catch(() => {});
+const ses4 = await p4.evaluate(() => ({ box: !document.getElementById('sesBox').hidden, app: document.getElementById('sApp').textContent }));
+check('porównanie: dane z tej sesji wczytane bez pliku', ses4.box && /dane z tej sesji/.test(ses4.app) && /impulsów kWh/.test(ses4.app), ses4.app);
+await p4.goBack();
+await p4.waitForTimeout(800);
+const back = await p4.evaluate(() => ({ vis: !document.getElementById('savedSes').hidden, t: document.getElementById('savedTxt').textContent }));
+check('powrót: zapisany pomiar dostępny (Pobierz CSV / Porównaj)', back.vis && /impulsów kWh/.test(back.t), back.t);
+check('auto-eksport: brak błędów JS', e4.length === 0, e4.join(' | '));
+await b4.close();
+
 // 7) strona porównania z eLicznikiem Tauron (sztuczne dane przykładowe)
 const b3 = await chromium.launch({ executablePath: '/usr/bin/google-chrome', headless: true });
 const c3 = await b3.newContext({ viewport: { width: 412, height: 900 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true, acceptDownloads: true });
@@ -177,8 +232,10 @@ const cmpPath = out + '/../tests/out-porownanie.csv'; await dl3.saveAs(cmpPath);
 const cmpCsv = fs.readFileSync(cmpPath, 'utf8');
 check('porównanie: eksport CSV (bez autora)', /^\ufeff?godzina;strefa;tauron_kWh;aplikacja_kWh/.test(cmpCsv) && cmpCsv.split('\n').length >= 9 && /Wygenerował: /.test(cmpCsv) && !/Kołodziejczyk|Autor/.test(cmpCsv), dl3.suggestedFilename());
 const h3 = await p3.content(), t3 = await p3.evaluate(() => document.body.innerText);
+check('porównanie: link „Postaw piwo” w stopce', (await p3.evaluate(() => { const a = document.getElementById('lnkBeer'); return !!a && a.href === 'https://buycoffee.to/robs001b' && a.target === '_blank' && a.rel === 'noopener noreferrer' && !!a.closest('footer') && !a.closest('#stick, .camwrap'); })));
 check('porównanie: autor dokładnie raz, brak długiego myślnika', (h3.match(/Autor: Robert Kołodziejczyk/g) || []).length === 1 && !t3.includes('\u2014'));
 await p3.screenshot({ path: out + '/13-porownanie.png', fullPage: true });
+await p3.locator('footer').screenshot({ path: out + '/16-wsparcie.png' });
 // wczytanie plików z dysku: Tauron w Windows-1250 z CRLF
 const w = fs.readFileSync(new URL('../przyklad/tauron-przyklad.csv', import.meta.url), 'utf8').replace(/^\ufeff/, '');
 const enc = Buffer.from(w.replace(/ś/g, '\x9c').replace(/ć/g, '\xe6').replace(/ó/g, '\xf3'), 'latin1');

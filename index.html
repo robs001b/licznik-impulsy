@@ -19,7 +19,6 @@
 <main>
   <section class="bar">
     <button id="btnCam" class="primary">Start kamery</button>
-    <button id="btnSim">Symulacja</button>
     <button id="btnStop" disabled>Stop</button>
   </section>
   <p id="status" class="status">Wybierz "Start kamery" i ustaw telefon nieruchomo przed licznikiem.</p>
@@ -45,28 +44,55 @@
     </div>
    </div>
   <section class="camwrap">
-    <label class="chk pin"><input type="checkbox" id="pin"> Przypnij podgląd i wyniki przy przewijaniu</label>
-    <div class="roibar">
+    <div class="bar top">
       <button id="btnFind" class="find">Znajdź diody</button>
+      <button id="btnCsv">Eksport CSV</button>
     </div>
+    <div id="findList" class="findlist"></div>
+    <p class="cmpl"><a href="porownanie.html" class="lnk" id="lnkCmp">Porównanie z eLicznikiem Tauron →</a> <span class="mu">(z danymi najpierw sam zapisze eksport CSV)</span></p>
+    <div id="savedSes" class="saved" hidden>
+      <p id="savedTxt"></p>
+      <div class="bar"><button id="savedDl">Pobierz CSV</button><a class="btnlnk" href="porownanie.html">Porównaj</a><button id="savedDel">Usuń</button></div>
+    </div>
+  </section>
+
+  <details class="sec" id="secDet">
+    <summary>Detekcja i pola diod</summary>
     <div class="roibar">
       <button class="roisel on" data-ch="0"><i class="dot k0"></i>Ustaw kWh</button>
       <button class="roisel" data-ch="1"><i class="dot k1"></i>Ustaw kvarh</button>
       <button id="roiMinus" title="Mniejszy obszar">-</button>
       <button id="roiPlus" title="Większy obszar">+</button>
     </div>
-    <div id="findList" class="findlist"></div>
     <p class="hint">"Znajdź diody" przez 10 s szuka małych czerwonych plam, które błyskają (50-300 ms), i sam ustawia obszary: lewa = kWh, środkowa = kvarh. Szybko migająca dioda modułu i odblaski są odrzucane. Ręcznie: dotknij diodę na podglądzie (albo przeciągnij prostokąt). Obszar ma obejmować samą diodę - ciasno, bez sąsiedniej diody i bez modułu z migającą diodą po prawej.</p>
     <div class="row">
       <label class="chk"><input type="checkbox" id="track"> Śledź diodę (korekta przesunięcia)</label>
       <span id="fps" class="mono">- fps</span>
     </div>
+    <h3>Sygnał diod na żywo</h3>
+    <div class="sig">
+      <div class="sighead"><i class="dot k0"></i>kWh <span class="mono" id="lvl0"></span><span class="flash" id="fl0"></span></div>
+      <canvas id="sig0" class="sigc"></canvas>
+      <label>Czułość kWh <input type="range" id="sens0" min="0" max="1" step="0.05" value="0.5"><span id="sens0v" class="mono">0,50</span></label>
+    </div>
+    <div class="sig">
+      <div class="sighead"><i class="dot k1"></i>kvarh <span class="mono" id="lvl1"></span><span class="flash" id="fl1"></span></div>
+      <canvas id="sig1" class="sigc"></canvas>
+      <label>Czułość kvarh <input type="range" id="sens1" min="0" max="1" step="0.05" value="0.5"><span id="sens1v" class="mono">0,50</span></label>
+    </div>
+    <p class="hint">Linia ciągła = tło, przerywana = próg załączenia, kropkowana = próg wyłączenia (histereza). Pionowe kreski = zaliczone impulsy.</p>
+  </details>
+
+  <details class="sec" id="secCam">
+    <summary>Ustawienia kamery i fokus</summary>
+    <label class="chk pin"><input type="checkbox" id="pin"> Przypnij podgląd i wyniki przy przewijaniu</label>
     <div id="focusCtl" class="camctl"></div>
     <div id="camCtl" class="camctl"></div>
-  </section>
+  </details>
 
-  <section class="cards">
-    <h2 class="cardsh">Szczegóły</h2>
+  <details class="sec" id="secCards">
+    <summary>Szczegóły pomiaru</summary>
+    <section class="cards">
     <div class="card big k0b">
       <div class="lbl">Moc czynna P</div>
       <div class="val"><span id="pInst">-</span> <small>kW</small></div>
@@ -88,46 +114,35 @@
       <div class="val mid"><span id="cos">-</span></div>
       <div class="sm">S = <b id="sApp">-</b> kVA · tg φ = <b id="tg">-</b></div>
     </div>
-  </section>
+    </section>
+  </details>
 
-  <section class="panel">
-    <h2>Sygnał diod na żywo</h2>
-    <div class="sig">
-      <div class="sighead"><i class="dot k0"></i>kWh <span class="mono" id="lvl0"></span><span class="flash" id="fl0"></span></div>
-      <canvas id="sig0" class="sigc"></canvas>
-      <label>Czułość kWh <input type="range" id="sens0" min="0" max="1" step="0.05" value="0.5"><span id="sens0v" class="mono">0,50</span></label>
-    </div>
-    <div class="sig">
-      <div class="sighead"><i class="dot k1"></i>kvarh <span class="mono" id="lvl1"></span><span class="flash" id="fl1"></span></div>
-      <canvas id="sig1" class="sigc"></canvas>
-      <label>Czułość kvarh <input type="range" id="sens1" min="0" max="1" step="0.05" value="0.5"><span id="sens1v" class="mono">0,50</span></label>
-    </div>
-    <p class="hint">Linia ciągła = tło, przerywana = próg załączenia, kropkowana = próg wyłączenia (histereza). Pionowe kreski = zaliczone impulsy.</p>
-  </section>
-
-  <section class="panel">
-    <h2>Moc w czasie</h2>
+  <details class="sec" id="secHist">
+    <summary>Historia impulsów (wykres mocy)</summary>
     <canvas id="chart" class="chartc"></canvas>
     <div class="legend"><span><i class="dot k0"></i>P [kW]</span><span><i class="dot k1"></i>Q [kvar]</span><span id="chartSpan" class="mono"></span></div>
     <div class="bar">
-      <button id="btnCsv">Eksport CSV</button>
-      <button id="btnReset">Wyzeruj</button>
+      <button id="btnReset">Wyzeruj pomiar</button>
     </div>
-    <p class="hint">Eksport zawiera czas każdego impulsu (także UTC) oraz początek i koniec pomiaru. <a href="porownanie.html" class="lnk" id="lnkCmp">Porównanie z eLicznikiem Tauron →</a></p>
-  </section>
+    <p class="hint">Eksport CSV zawiera czas każdego impulsu (także UTC) oraz początek i koniec pomiaru. Dane bieżącej sesji są też zapisywane w tej przeglądarce, więc powrót ze strony porównania ich nie gubi.</p>
+  </details>
 
-  <section class="panel" id="simPanel" hidden>
-    <h2>Symulacja (wirtualne diody)</h2>
+  <details class="sec" id="secSim">
+    <summary>Symulacja / test</summary>
+    <div class="bar"><button id="btnSim">Symulacja</button></div>
+    <div id="simPanel" hidden>
     <label>P zadane <input type="range" id="simP" min="0" max="20" step="0.1" value="5"><span id="simPv" class="mono">5,0 kW</span></label>
     <label>Q zadane <input type="range" id="simQ" min="0" max="10" step="0.1" value="1.5"><span id="simQv" class="mono">1,5 kvar</span></label>
     <label>Długość błysku <input type="range" id="simDur" min="10" max="200" step="5" value="100"><span id="simDurv" class="mono">100 ms</span></label>
     <label class="chk"><input type="checkbox" id="simShake"> Drgania ręki (przesuwanie obrazu)</label>
     <label class="chk"><input type="checkbox" id="simGlare"> Odblask lampy, refleks i migotanie światła</label>
     <p class="hint">Obraz z wirtualnego licznika przechodzi przez ten sam tor co kamera (ROI, detekcja, obliczenia). Po prawej miga szybka dioda modułu - nie może być liczona.</p>
-  </section>
+    </div>
+  </details>
 
-  <section class="panel">
-    <h2>Ustawienia</h2>
+  <details class="sec" id="secSet">
+    <summary>Ustawienia licznika i detekcji</summary>
+    <div class="panel0">
     <label>Stała kWh [imp/kWh] <input type="number" id="cK" value="1000" min="1" step="1" inputmode="numeric"></label>
     <label>Stała kvarh [imp/kvarh] <input type="number" id="cQ" value="1000" min="1" step="1" inputmode="numeric"></label>
     <label>Średnia z N impulsów <input type="number" id="nAvg" value="5" min="1" max="100" step="1" inputmode="numeric"></label>
@@ -139,11 +154,11 @@
     </label>
     <p class="hint">Sygnał "czerwona dioda": liczy się tylko czerwień (R wyraźnie ponad G i B). Biały odblask lampy, refleks i prześwietlone białe piksele są pomijane - chyba że leżą w czerwonej poświacie (prześwietlony rdzeń świecącej diody). Impuls jest odrzucany, gdy rozjaśnia się cały kadr (cień, lampa, migotanie 50/100 Hz) albo pierścień wokół obszaru bardziej niż sam obszar (duża plama, krawędź).</p>
     <p class="hint">Tłumienie przesłuchu: impuls w jednym obszarze liczy się tylko, gdy jego skok jasności jest co najmniej tyle razy większy niż jednoczesny skok w drugim obszarze. Chroni przed poświatą sąsiedniej diody w szczelinie.</p>
-  </section>
+    </div>
+  </details>
 
-  <section class="panel">
-    <details>
-      <summary>Jak używać i jak to liczy</summary>
+  <details class="sec" id="secHow">
+    <summary>Jak używać i jak to liczy</summary>
       <ol>
         <li>Postaw telefon na statywie lub oprzyj go stabilnie, 10-20 cm od licznika. Ręka przesuwa obraz i psuje pomiar.</li>
         <li>"Start kamery" - pozwól na dostęp do aparatu. Jeśli jest zoom, przybliż szczelinę z diodami.</li>
@@ -156,11 +171,22 @@
       <p><b>Brak impulsu:</b> jeśli od ostatniego impulsu minęło t sekund, moc nie może być większa niż 3600 / (stała · t) - aplikacja pokazuje tę górną granicę.</p>
       <p><b>cos φ</b> = P / √(P² + Q²), liczony ze średnich. <b>Uwaga:</b> dioda kvarh może sumować energię bierną indukcyjną i pojemnościową (zależnie od konfiguracji licznika), więc Q nie mówi o znaku (charakterze) mocy biernej, a cos φ jest wtedy tylko orientacyjny.</p>
       <p><b>Dokładność:</b> czas impulsu ma rozdzielczość około jednej klatki (interpolowana). Przy 30 fps i T = 0,7 s błąd pojedynczego pomiaru to kilka %, średnia z N impulsów go zmniejsza. Błysk ok. 100 ms to 2-3 klatki przy 30 fps - wystarczy. Błyski krótsze niż czas klatki mogą być gubione.</p>
-    </details>
-  </section>
+      </details>
 </main>
 
-<footer>Autor: Robert Kołodziejczyk</footer>
+<div id="toast" class="toast" role="status" hidden></div>
+
+<footer>
+  <aside class="support" aria-label="Wsparcie">
+    <div class="sup-ico" aria-hidden="true">🍺</div>
+    <div class="sup-body">
+      <p class="sup-h">Bez reklam, bez śledzenia, bez opłat</p>
+      <p class="sup-t">Aplikacja jest i będzie darmowa. Nie ma tu reklam, bo nikt ich nie lubi - a wszystko działa na Twoim telefonie. Jeśli Ci pomogła i chcesz wesprzeć dalszy rozwój, postaw mi piwo. Dzięki! 🙂</p>
+      <a class="beer" id="lnkBeer" href="https://buycoffee.to/robs001b" target="_blank" rel="noopener noreferrer">Postaw piwo 🍺</a>
+    </div>
+  </aside>
+  <p class="author">Autor: Robert Kołodziejczyk</p>
+</footer>
 
 <script src="detector.js"></script>
 <script src="sim.js"></script>

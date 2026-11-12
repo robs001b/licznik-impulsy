@@ -11,13 +11,14 @@ P [kW] = 3600 / (stała [imp/kWh] · T [s]), Q [kvar] analogicznie, cos φ = P /
 - Detekcja: jasność ROI względem adaptacyjnego tła (dolna obwiednia), próg z histerezą, zbocze narastające interpolowane między klatkami, potwierdzenie na zboczu opadającym, debounce, odrzucanie długiego świecenia, tłumienie przesłuchu między diodami.
 - Próbkowanie przez `requestVideoFrameCallback` (znacznik `captureTime`), zapas: `requestAnimationFrame`.
 - Zoom, kompensacja / czas ekspozycji, latarka - jeśli aparat je udostępnia. Wake Lock.
+- Strona główna: na wierzchu podgląd, wyniki, Start/Stop, Znajdź diody, Eksport CSV i porównanie; reszta w zwijanych sekcjach (stan zapamiętany).
 - Wykres mocy, eksport CSV (separator `;`, przecinek dziesiętny), tryb symulacji.
 
 ## Porównanie z eLicznikiem Tauron (`porownanie.html`)
 
 Strona działa lokalnie w przeglądarce - pliki nie są nigdzie wysyłane.
 
-1. Zmierz zużycie aplikacją (najlepiej przez pełne godziny) i zrób "Eksport CSV" - plik zawiera czas każdego impulsu (lokalny i UTC) oraz wiersze `start`/`koniec` pomiaru.
+1. Zmierz zużycie aplikacją (najlepiej przez pełne godziny) i zrób "Eksport CSV" (link do porównania robi to sam, gdy są zebrane impulsy, a dane sesji zostają też w przeglądarce - na stronie porównania przycisk "Użyj danych z tej sesji") - plik zawiera czas każdego impulsu (lokalny i UTC) oraz wiersze `start`/`koniec` pomiaru.
 2. Następnego dnia pobierz z eLicznika dane godzinowe (Energia → Zakres DZIEŃ → "Pobierz dane" → godzinowe, pobór, CSV).
 3. Wczytaj oba pliki na stronie porównania. Dla każdej godziny: kWh z Taurona, kWh z aplikacji, różnica w kWh i %, podsumowanie, wykres słupkowy i eksport CSV porównania.
 
