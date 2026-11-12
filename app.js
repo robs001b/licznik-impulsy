@@ -93,7 +93,7 @@
   }
 
   /* ---------- Znajdź diody ---------- */
-  var finding = null, lastFind = null, FIND_MS = 5000;
+  var finding = null, lastFind = null, FIND_MS = 10000;
   var fc = document.createElement('canvas'), fctx = fc.getContext('2d', { willReadFrequently: true });
   function startFind() {
     if (!running) { status('Najpierw uruchom kamerę albo symulację.', true); return; }
@@ -108,9 +108,12 @@
   function findFrame(t, vw, vh) {
     var F = finding;
     if (F.t0 == null) F.t0 = t;
-    fctx.drawImage(video, 0, 0, vw, vh, 0, 0, F.AW, F.AH);
-    F.maps.push(D.scoreMap(fctx.getImageData(0, 0, F.AW, F.AH).data, F.AW, F.AH, 'led', 3));
-    F.times.push(t);
+    // maks. ok. 30 klatek/s i mapy 8-bitowe: 10 s analizy = ok. 6 MB pamięci
+    if (!F.times.length || t - F.times[F.times.length - 1] >= 30) {
+      fctx.drawImage(video, 0, 0, vw, vh, 0, 0, F.AW, F.AH);
+      F.maps.push(Uint8ClampedArray.from(D.scoreMap(fctx.getImageData(0, 0, F.AW, F.AH).data, F.AW, F.AH, 'led', 3)));
+      F.times.push(t);
+    }
     var left = FIND_MS - (t - F.t0);
     $('btnFind').textContent = left > 0 ? 'Analiza... ' + Math.ceil(left / 1000) + ' s' : 'Analiza...';
     if (left <= 0) { finding = null; setTimeout(function () { finishFind(F); }, 0); }

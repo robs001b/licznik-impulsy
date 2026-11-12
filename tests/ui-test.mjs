@@ -57,7 +57,7 @@ await page.screenshot({ path: out + '/09-symulacja-odblaski.png' });
 
 // 3c) Znajdź diody w symulacji (ROI startowo w złym miejscu)
 await page.goto(base + '?sim=1&P=8&Q=3&track=0&roi0=0.2,0.3,0.04,0.07&roi1=0.8,0.3,0.04,0.07&find=1000');
-await page.waitForTimeout(8000);
+await page.waitForTimeout(13000);
 let fr = await page.evaluate(() => window.__find());
 let rk = await page.evaluate(() => window.__licznik.rois());
 check('Znajdź diody (symulacja): kWh ≈ 0,36, kvarh ≈ 0,50, ROI przestawione', fr && Math.abs(rk[0].x - 0.36) < 0.02 && Math.abs(rk[1].x - 0.5) < 0.02,
@@ -90,7 +90,7 @@ if (y4m) {
     // Chrome przycina pionowy film 576x1024 do 576x720 (środek): y = (305-152)/720
   // obszary startowo celowo źle - ustawia je "Znajdź diody"
   await page.goto(base + '?cam=1&track=0&roi0=0.6,0.6,0.03,0.02&roi1=0.7,0.6,0.03,0.02&find=1500');
-  await page.waitForTimeout(8000);
+  await page.waitForTimeout(13500);
   fr = await page.evaluate(() => window.__find());
   rk = await page.evaluate(() => window.__licznik.rois());
   const desc = fr ? fr.cands.map(c => (c.role || 'X') + '@' + c.x.toFixed(3) + ',' + c.y.toFixed(3) + (c.reason ? '(' + c.reason + ')' : '')).join(' ') : 'brak';

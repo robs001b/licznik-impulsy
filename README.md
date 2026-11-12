@@ -4,7 +4,7 @@ Statyczna aplikacja PWA (bez serwera). Tylna kamera obserwuje diody impulsowe li
 
 P [kW] = 3600 / (stała [imp/kWh] · T [s]), Q [kvar] analogicznie, cos φ = P / √(P² + Q²).
 
-- "Znajdź diody": 5 s analizy kadru - mapa zmian tylko czerwonych pikseli, małe zwarte plamy błyskające 20-350 ms, odrzucenie szybko migającej diody modułu, odblasków, krawędzi i poświaty; lewa = kWh, następna w rzędzie = kvarh. Ręczne zaznaczanie dotykiem zostaje.
+- "Znajdź diody": 10 s analizy kadru - mapa zmian tylko czerwonych pikseli, małe zwarte plamy błyskające 20-350 ms, odrzucenie szybko migającej diody modułu, odblasków, krawędzi i poświaty; lewa = kWh, następna w rzędzie = kvarh. Ręczne zaznaczanie dotykiem zostaje.
 - Sygnał "czerwona dioda": czerwień R ponad G i B; białe/prześwietlone piksele tylko w czerwonej poświacie (rdzeń świecącej diody); pierścień wokół ROI (kształt) i globalne tło kadru (cień, lampa, migotanie 50/100 Hz) nie dają impulsu.
 - Ostrość: focusMode continuous, dotknij-aby-ustawić (pointsOfInterest), blokada (manual z bieżącą odległością lub single-shot), status.
 - Dwa małe obszary pomiarowe (ROI), okno 2× ROI do śledzenia przesunięcia.

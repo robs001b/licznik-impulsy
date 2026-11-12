@@ -68,7 +68,7 @@ function scenario(name, opt) {
   let roi = TRUE_ROI, found = null;
   if (S.find) {
     const maps = [], times = [];
-    for (const t of frames) { if (t > 6000) break; maps.push(D.scoreMap(down(render(t, S)), AW, AH, 'led', 3)); times.push(t); }
+    for (const t of frames) { if (t > 10000) break; /* 10 s analizy jak w aplikacji */ maps.push(D.scoreMap(down(render(t, S)), AW, AH, 'led', 3)); times.push(t); }
     found = D.findLeds(maps, times, AW, AH);
     roi = found.roi.map((r, i) => r || TRUE_ROI[i]);
   }
@@ -119,7 +119,7 @@ const c2 = scenario('kontrola luma 2', { step: [8000, 12000, 1.5], reflex: true,
 check('kontrola: tryb "jasność" myli się przy migotaniu+odblasku lub zmianie światła+refleksie (nowy tryb nie)',
   c1.n[0] !== c1.exp[0] || c1.n[1] !== c1.exp[1] || c2.n[0] !== c2.exp[0] || c2.n[1] !== c2.exp[1], `luma: ${desc(c1)} ; ${desc(c2)}`);
 // znajdowanie: moduł odrzucony jako szybkie miganie
-const m = scenario('mod', { module: 125, secs: 7 });
+const m = scenario('mod', { module: 125, secs: 11 });
 console.log('   kandydaci:', m.found.cands.map(c => (c.role || 'X') + '@' + c.x.toFixed(2) + ',' + c.y.toFixed(2) + ' ' + c.reason).join(' | '));
 const modC = m.found.cands.find(c => Math.abs(c.x - MOD.x / W) < 0.03 && Math.abs(c.y - MOD.y / H) < 0.05);
 check('Znajdź diody: dioda modułu pokazana jako odrzucona', modC && !modC.ok, modC ? modC.reason : 'nie znaleziona wcale');
