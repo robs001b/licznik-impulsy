@@ -132,3 +132,4 @@ details.sec select{width:auto}
 .beer:hover,.beer:focus-visible{background:#ffc04d;outline:none;box-shadow:0 0 0 3px rgba(255,176,32,.35)}
 .author{margin:6px 0 0}
 @media (prefers-color-scheme: light){.support{border-color:#3a4554}}
+.rbsum{color:var(--tx)}

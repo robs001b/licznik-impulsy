@@ -133,7 +133,7 @@
   if (ses && ses.csv) {
     var sd = new Date(ses.start), p2s = function (n) { return (n < 10 ? '0' : '') + n; };
     var hm = function (t) { var d = new Date(t); return p2s(d.getHours()) + ':' + p2s(d.getMinutes()); };
-    $('sesTxt').textContent = 'Pomiar z tej przeglądarki: ' + sd.getFullYear() + '-' + p2s(sd.getMonth() + 1) + '-' + p2s(sd.getDate()) + ' ' + hm(ses.start) + '-' + hm(ses.end) + ', ' + ses.nk + ' impulsów kWh.';
+    $('sesTxt').textContent = 'Pomiar z tej przeglądarki: ' + sd.getFullYear() + '-' + p2s(sd.getMonth() + 1) + '-' + p2s(sd.getDate()) + ' ' + hm(ses.start) + '-' + hm(ses.end) + ', ' + ses.nk + ' impulsów kWh' + (ses.ek != null ? ' (' + f(ses.ek, 3) + ' kWh)' : '') + '.';
     $('sesBox').hidden = false;
     $('btnSes').onclick = function () { setApp(ses.csv, 'dane z tej sesji (' + (ses.name || 'pomiar') + ')'); };
     if (/[?&]sesja=1/.test(location.search)) $('btnSes').click();

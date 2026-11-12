@@ -11,7 +11,7 @@ P [kW] = 3600 / (stała [imp/kWh] · T [s]), Q [kvar] analogicznie, cos φ = P /
 - Detekcja: jasność ROI względem adaptacyjnego tła (dolna obwiednia), próg z histerezą, zbocze narastające interpolowane między klatkami, potwierdzenie na zboczu opadającym, debounce, odrzucanie długiego świecenia, tłumienie przesłuchu między diodami.
 - Próbkowanie przez `requestVideoFrameCallback` (znacznik `captureTime`), zapas: `requestAnimationFrame`.
 - Zoom, kompensacja / czas ekspozycji, latarka - jeśli aparat je udostępnia. Wake Lock.
-- Strona główna: na wierzchu podgląd, wyniki, Start/Stop, Znajdź diody, Eksport CSV i porównanie; reszta w zwijanych sekcjach (stan zapamiętany).
+- Strona główna: na wierzchu podgląd, wyniki, Start/Stop, Znajdź diody, Eksport CSV i porównanie; w kartach P/Q suma energii od startu (kWh, kvarh) i czas pomiaru; "Sygnał diod na żywo" i "Historia impulsów" domyślnie rozwinięte, reszta w zwijanych sekcjach (stan zapamiętany).
 - Wykres mocy, eksport CSV (separator `;`, przecinek dziesiętny), tryb symulacji.
 
 ## Porównanie z eLicznikiem Tauron (`porownanie.html`)

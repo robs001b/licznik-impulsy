@@ -507,6 +507,7 @@
       $('b' + P + 'T').textContent = isFinite(s.lastT) ? fmt(s.lastT, 2) + ' s' : '-';
       $('b' + P + 'Since').textContent = fmtS(s.since);
       $('b' + P + 'Cnt').textContent = s.count;
+      $('b' + P + 'E').textContent = fmt(s.energy, 3); // suma energii od startu pomiaru = impulsy / stała
       warns.push(s.stale ? (i ? 'Q' : 'P') + ' ≤ ' + fmtP(s.maxPossible) : '');
     }
     $('bWarn').textContent = warns.filter(Boolean).length ? 'brak imp.: ' + warns.filter(Boolean).join(', ') : '';
@@ -517,9 +518,14 @@
     $('tg').textContent = isFinite(cphi) && Pv > 0 ? fmt(Qv / Pv, 3) : '-';
     $('bCos').textContent = fmt(cphi, 3);
     $('bS').textContent = $('sApp').textContent;
+    $('bDur').textContent = records.length || running ? fmtDur(((session.end && !running ? session.end : Date.now()) - session.start) / 1000) : '-';
     var dt = (now - fpsT) / 1000;
     if (dt >= 1) { fps = frames / dt; frames = 0; fpsT = now; }
     $('fps').textContent = running ? fmt(fps, 0) + ' fps' + (hasRVFC ? '' : ' (rAF)') + (fps && fps < 20 ? ' - za mało na krótkie błyski' : '') : '- fps';
+  }
+  function fmtDur(sec) {
+    sec = Math.max(0, Math.floor(sec)); var h = Math.floor(sec / 3600), m = Math.floor(sec / 60) % 60, x = sec % 60;
+    return (h ? h + ':' + pad2(m) : m) + ':' + pad2(x);
   }
   var lastCards = 0;
   function uiLoop(now) {
@@ -569,8 +575,8 @@
   function saveSession(f) {
     if (!records.length) return false;
     f = f || buildCsv();
-    var n0 = records.filter(function (r) { return r.ch === 0; }).length;
-    try { localStorage.setItem(SES, JSON.stringify({ csv: f.text, name: f.name, n: records.length, nk: n0, start: session.start, end: session.end || Date.now(), saved: Date.now() })); savedN = records.length; savedAt = Date.now(); return true; }
+    var n0 = records.filter(function (r) { return r.ch === 0; }).length, n1 = records.length - n0;
+    try { localStorage.setItem(SES, JSON.stringify({ csv: f.text, name: f.name, n: records.length, nk: n0, ek: n0 / cfg.cK, eq: n1 / cfg.cQ, start: session.start, end: session.end || Date.now(), saved: Date.now() })); savedN = records.length; savedAt = Date.now(); return true; }
     catch (e) { return false; }
   }
   function autoSave() { if (records.length && records.length !== savedN && Date.now() - savedAt > 5000) saveSession(); }
@@ -587,7 +593,7 @@
     var box = $('savedSes');
     if (!raw || !raw.csv || records.length) { box.hidden = true; return; }
     var d = new Date(raw.start);
-    $('savedTxt').textContent = 'Zapisany pomiar: ' + d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()) + ' ' + hm(raw.start) + '-' + hm(raw.end) + ', ' + raw.nk + ' impulsów kWh.';
+    $('savedTxt').textContent = 'Zapisany pomiar: ' + d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()) + ' ' + hm(raw.start) + '-' + hm(raw.end) + ', ' + raw.nk + ' impulsów kWh' + (raw.ek != null ? ' - suma ' + fmt(raw.ek, 3) + ' kWh, ' + fmt(raw.eq, 3) + ' kvarh' : '') + '.';
     box.hidden = false;
     $('savedDl').onclick = function () { download(raw.csv, raw.name || 'impulsy.csv'); };
     $('savedDel').onclick = function () { try { localStorage.removeItem(SES); } catch (e) {} box.hidden = true; };
@@ -666,10 +672,10 @@
   if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(function () {});
   // zwijane sekcje: domyślnie zwinięte, stan zapamiętany
   (function () {
-    var KEY = 'licznik-impulsy-sekcje', st = {};
+    var KEY = 'licznik-impulsy-sekcje-v2', st = {}; // v2: Sygnał i Historia domyślnie rozwinięte
     try { st = JSON.parse(localStorage.getItem(KEY) || '{}') || {}; } catch (e) {}
     document.querySelectorAll('details.sec').forEach(function (d) {
-      d.open = !!st[d.id];
+      d.open = d.id in st ? !!st[d.id] : d.hasAttribute('data-open');
       d.addEventListener('toggle', function () { st[d.id] = d.open; try { localStorage.setItem(KEY, JSON.stringify(st)); } catch (e) {} });
     });
   })();

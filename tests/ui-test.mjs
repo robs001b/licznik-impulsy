@@ -28,7 +28,7 @@ check('symulacja: Q średnie ≈ 1,5 kvar (±3%)', Math.abs(s.s1.avg / 1.5 - 1) 
 await page.screenshot({ path: out + '/01-symulacja-gora.png' });
 await page.screenshot({ path: out + '/02-symulacja-cala-strona.png', fullPage: true });
 await openAll(page); await page.waitForTimeout(800);
-await page.locator('#secDet').screenshot({ path: out + '/03-sygnal-diod.png' });
+await page.locator('#secSig').screenshot({ path: out + '/03-sygnal-diod.png' });
 await page.locator('#secHist').screenshot({ path: out + '/04-wykres-mocy.png' });
 const [dl] = await Promise.all([page.waitForEvent('download'), page.click('#btnCsv')]);
 const csvPath = out + '/../tests/out-eksport.csv'; await dl.saveAs(csvPath);
@@ -86,8 +86,8 @@ await page.evaluate(() => window.scrollTo(0, 0));
 await page.setViewportSize({ width: 412, height: 915 });
 
 // 4) zaznaczanie ROI dotykiem
-const box = await page.locator('#overlay').boundingBox();
 await page.click('.roisel[data-ch="1"]');
+const box = await page.locator('#overlay').boundingBox(); // po kliknięciu (sekcja niżej - strona się przewija, podgląd przypięty)
 await page.mouse.click(box.x + box.width * 0.7, box.y + box.height * 0.3);
 const r1 = await page.evaluate(() => window.__licznik.rois()[1]);
 check('dotyk przenosi obszar kvarh', Math.abs(r1.x - 0.7) < 0.02 && Math.abs(r1.y - 0.3) < 0.03, `x=${r1.x.toFixed(3)} y=${r1.y.toFixed(3)}`);
@@ -173,18 +173,36 @@ await p4.goto(base + '?sim=1&P=5&Q=1.5&track=0');
 await p4.waitForTimeout(7000);
 const top = await p4.evaluate(() => {
   const vis = id => { const e = document.getElementById(id); if (!e || e.closest('details:not([open])')) return false; const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
-  return { closed: [...document.querySelectorAll('details.sec')].every(d => !d.open), n: document.querySelectorAll('details.sec').length,
+  const OPEN = ['secSig', 'secHist'];
+  return { closed: [...document.querySelectorAll('details.sec')].every(d => d.open === OPEN.includes(d.id)), n: document.querySelectorAll('details.sec').length,
+    sigChart: vis('sig0') && vis('sig1') && vis('chart'),
     cam: vis('cam'), res: vis('resbar'), start: vis('btnCam'), stop: vis('btnStop'), find: vis('btnFind'), csv: vis('btnCsv'), cmp: vis('lnkCmp'),
-    hidden: !vis('cK') && !vis('focusCtl') && !vis('chart') && !vis('sig0'), h: document.documentElement.scrollHeight,
+    hidden: !vis('cK') && !vis('focusCtl') && !vis('roiPlus') && !vis('simP') && !vis('pInst'), h: document.documentElement.scrollHeight,
     cmpBottom: document.getElementById('lnkCmp').getBoundingClientRect().bottom };
 });
+check('Sygnał diod i Historia impulsów domyślnie rozwinięte (osobne sekcje), reszta zwinięta', top.closed && top.sigChart, JSON.stringify(top));
 check('strona główna: sekcje domyślnie zwinięte, na wierzchu kamera, wyniki, Start/Stop, Znajdź diody, Eksport CSV, porównanie', top.closed && top.n >= 6 && top.cam && top.res && top.start && top.stop && top.find && top.csv && top.cmp && top.hidden, JSON.stringify(top));
 check('412x900: przyciski i link do porównania bez przewijania', top.cmpBottom <= 900, 'dół linku ' + Math.round(top.cmpBottom));
 await p4.screenshot({ path: out + '/15-strona-glowna-zwinieta.png' });
+await p4.waitForTimeout(1500);
+await p4.screenshot({ path: out + '/17-sekcje-rozwiniete.png', fullPage: true });
+const sums = await p4.evaluate(() => { const L = window.__licznik, n = performance.now(); return { e: document.getElementById('bpE').textContent, qe: document.getElementById('bqE').textContent, n0: L.calc.stats(0, n).count, n1: L.calc.stats(1, n).count, dur: document.getElementById('bDur').textContent, w: document.getElementById('resbar').scrollWidth, cw: document.getElementById('resbar').clientWidth }; });
+check('karty P/Q: suma energii = impulsy / 1000 (3 miejsca, przecinek) i czas pomiaru', sums.n0 > 2 && (sums.e === (sums.n0 / 1000).toFixed(3).replace('.', ',') || sums.e === ((sums.n0 - 1) / 1000).toFixed(3).replace('.', ',')) && /^\d+,\d{3}$/.test(sums.qe) && /^\d+:\d\d$/.test(sums.dur) && sums.w <= sums.cw, JSON.stringify(sums));
+await p4.locator('#resbar').screenshot({ path: out + '/18-sumy.png' });
+await p4.click('#btnReset'); await p4.waitForTimeout(400);
+const z = await p4.evaluate(() => [document.getElementById('bpE').textContent, document.getElementById('bqE').textContent]);
+check('Wyzeruj pomiar zeruje sumy', z[0] === '0,000' && z[1] === '0,000', z.join(' / '));
+// stary zapamiętany stan (klucz v1, sekcje zamknięte) nie zamyka nowych domyślnie otwartych
+await p4.evaluate(() => { localStorage.setItem('licznik-impulsy-sekcje', JSON.stringify({ secHist: false, secDet: false })); localStorage.removeItem('licznik-impulsy-sekcje-v2'); });
+await p4.reload();
+check('reset stanu: po odświeżeniu Sygnał i Historia otwarte mimo starego klucza', await p4.evaluate(() => document.getElementById('secSig').open && document.getElementById('secHist').open && !document.getElementById('secDet').open));
+await p4.click('#secSig summary'); await p4.waitForTimeout(300); await p4.reload();
+check('zwinięcie Sygnału zapamiętane', await p4.evaluate(() => !document.getElementById('secSig').open));
+await p4.click('#secSig summary'); await p4.waitForTimeout(300);
 await p4.click('#secHow summary');
 await p4.waitForTimeout(400);
 await p4.goto(base + '?sim=1&P=5&Q=1.5&track=0');
-check('stan sekcji zapamiętany', await p4.evaluate(() => document.getElementById('secHow').open && !document.getElementById('secSet').open));
+check('stan sekcji zapamiętany', await p4.evaluate(() => document.getElementById('secHow').open && !document.getElementById('secSet').open && document.getElementById('secSig').open));
 await p4.click('#secHow summary');
 await p4.waitForTimeout(6000);
 const nRec = await p4.evaluate(() => window.__licznik.records().length);
@@ -204,7 +222,7 @@ check('porównanie: dane z tej sesji wczytane bez pliku', ses4.box && /dane z te
 await p4.goBack();
 await p4.waitForTimeout(800);
 const back = await p4.evaluate(() => ({ vis: !document.getElementById('savedSes').hidden, t: document.getElementById('savedTxt').textContent }));
-check('powrót: zapisany pomiar dostępny (Pobierz CSV / Porównaj)', back.vis && /impulsów kWh/.test(back.t), back.t);
+check('powrót: zapisany pomiar dostępny z sumą energii (Pobierz CSV / Porównaj)', back.vis && /impulsów kWh - suma \d+,\d{3} kWh/.test(back.t), back.t);
 check('auto-eksport: brak błędów JS', e4.length === 0, e4.join(' | '));
 await b4.close();
 
