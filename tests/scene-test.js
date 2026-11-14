@@ -69,7 +69,7 @@ function scenario(name, opt) {
   if (S.find) {
     const maps = [], times = [];
     for (const t of frames) { if (t > 10000) break; /* 10 s analizy jak w aplikacji */ maps.push(D.scoreMap(down(render(t, S)), AW, AH, 'led', 3)); times.push(t); }
-    found = D.findLeds(maps, times, AW, AH);
+    found = D.findLeds(maps, times, AW, AH, { profile: D.PROFILES['sanxing-s34u28'] });
     roi = found.roi.map((r, i) => r || TRUE_ROI[i]);
   }
   const det = new D.MeterDetector({ xtalk: 0.6 }), calc = new D.PowerCalc([1000, 1000], 5);

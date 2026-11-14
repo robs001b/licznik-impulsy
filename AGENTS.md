@@ -5,7 +5,7 @@ Licznik impulsów - statyczna aplikacja PWA (bez serwera i bez zależności w ru
 
 ## Struktura
 - `index.html`, `app.js`, `style.css` - główna strona (kamera, ROI, wyniki, eksport CSV, zwijane sekcje)
-- `detector.js` - detekcja impulsów i wyszukiwanie diod (UMD, bez DOM - testowalne w Node)
+- `detector.js` - detekcja impulsów, wyszukiwanie diod, profile liczników (PROFILES) i odzyskiwanie zgubionej diody (Reacquirer); UMD, bez DOM - testowalne w Node
 - `sim.js` - wirtualny licznik do trybu symulacji
 - `compare.js`, `porownanie.html`, `porownanie.js` - parser eLicznika, agregacja godzinowa (Europe/Warsaw, zmiana czasu), porównanie
 - `sw.js` - service worker (przy zmianie plików podbij nazwę cache `licznik-impulsy-vN`)
@@ -17,6 +17,7 @@ Licznik impulsów - statyczna aplikacja PWA (bez serwera i bez zależności w ru
 node tests/detector-test.js
 node tests/scene-test.js
 node tests/compare-test.js
+node tests/reacq-test.js                    # odzyskiwanie zgubionej diody, profil Sanxing (Alarm)
 node tests/film-test.js <film.mp4>          # opcjonalnie, film lokalny poza repo
 cd tests && npm i && node ui-test.mjs http://localhost:8765/ ../zrzuty [film.y4m]
 node tests/layout-test.mjs http://localhost:8765/ ../zrzuty   # układ na telefonach

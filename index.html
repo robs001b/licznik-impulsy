@@ -94,6 +94,7 @@
     <p class="hint">"Znajdź diody" przez 10 s szuka małych czerwonych plam, które błyskają (50-300 ms), i sam ustawia obszary: lewa = kWh, środkowa = kvarh. Szybko migająca dioda modułu i odblaski są odrzucane. Ręcznie: dotknij diodę na podglądzie (albo przeciągnij prostokąt). Obszar ma obejmować samą diodę - ciasno, bez sąsiedniej diody i bez modułu z migającą diodą po prawej.</p>
     <div class="row">
       <label class="chk"><input type="checkbox" id="track"> Śledź diodę (korekta przesunięcia)</label>
+      <label class="chk"><input type="checkbox" id="reacq"> Szukaj zgubionej diody na większym obszarze</label>
       <span id="fps" class="mono">- fps</span>
     </div>
   </details>
@@ -149,6 +150,8 @@
   <details class="sec" id="secSet">
     <summary>Ustawienia licznika i detekcji</summary>
     <div class="panel0">
+    <label>Profil licznika <select id="profile"></select></label>
+    <p class="hint" id="profDesc"></p>
     <label>Stała kWh [imp/kWh] <input type="number" id="cK" value="1000" min="1" step="1" inputmode="numeric"></label>
     <label>Stała kvarh [imp/kvarh] <input type="number" id="cQ" value="1000" min="1" step="1" inputmode="numeric"></label>
     <label>Średnia z N impulsów <input type="number" id="nAvg" value="5" min="1" max="100" step="1" inputmode="numeric"></label>

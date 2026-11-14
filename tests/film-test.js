@@ -18,7 +18,7 @@ const AW = 160, AH = 284;
 const A = frames(AW, AH), maps = [], times = [];
 for (let f = 0; f < A.n; f++) { maps.push(D.scoreMap(A.raw.subarray(f * AW * AH * 4, (f + 1) * AW * AH * 4), AW, AH, 'led', 3)); times.push(f * 1000 / fps); }
 const t0 = Date.now();
-const found = D.findLeds(maps, times, AW, AH);
+const found = D.findLeds(maps, times, AW, AH, { profile: D.PROFILES[process.env.PROFILE || 'sanxing-s34u28'] }); // profil licznika z filmu
 console.log(`Znajdź diody (${A.n} klatek ${AW}x${AH}, ${Date.now() - t0} ms):`);
 for (const c of found.cands) console.log(`  ${c.ok ? 'PRZYJĘTA ' + c.role : 'odrzucona'} x=${c.x.toFixed(3)} y=${c.y.toFixed(3)} błyski=${c.events}/${c.all}${c.reason ? ' - ' + c.reason : ''}`);
 if (found.msg) console.log('  ' + found.msg);

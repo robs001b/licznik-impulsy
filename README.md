@@ -28,11 +28,24 @@ Szczegóły: godzina w pliku Taurona oznacza koniec okresu (`1:00` = 0:00-1:00, 
 
 Uwaga: dioda kvarh może sumować energię bierną indukcyjną i pojemnościową - Q nie mówi o charakterze mocy biernej.
 
+## Profil licznika i odzyskiwanie zgubionej diody
+
+**Profil licznika** (Ustawienia, zapamiętywany w przeglądarce):
+- *Sanxing S34U28-PL-T10* (domyślny) - stałe 1000 imp/kWh i 1000 imp/kvarh. Pod LCD jest pasek wskaźników (PM, [A]!, OL, OS, OM), niżej w jednym rzędzie diody kWh, kvarh i Alarm (czerwona, nad strzałkami). Profil zapisuje geometrię względną: kvarh = kWh + d, Alarm = kWh + 2d (d - wektor kWh -> kvarh), tolerancja 0,4·|d|. „Znajdź diody” przypisuje kWh/kvarh według tego układu i odrzuca diodę Alarm - jej błyski nie są liczone.
+- *Inny / ogólny* - dotychczasowe zachowanie (kolejność od lewej, bez założeń o geometrii).
+
+**Odzyskiwanie zgubionej diody** (opcja „Szukaj zgubionej diody na większym obszarze”, domyślnie włączona), osobno dla każdej diody:
+- śledzenie -> szukanie, gdy brak impulsu dłużej niż max(3×T, 20 s) (T - ostatni okres diody; maks. 10 min, 30 s przy nieznanym T), wcześniej przy utracie obrazu diody (wzorzec 8×8 niepodobny przez 1,5 s) albo przy złamaniu geometrii profilu przez 2 s;
+- obszar rośnie: 2× okno -> 4× okno -> pół kadru -> cały kadr, z wykluczeniem drugiej diody, odrzuconych kandydatów i (w profilu) miejsca diody Alarm; kryteria jak w „Znajdź diody”, a przy zdrowej drugiej diodzie kandydat musi pasować do wektora kWh -> kvarh;
+- ROI przechodzi na nowe miejsce dopiero po potwierdzonym błysku (impuls 20-350 ms w ciągu max(8 s, 2,5×T)); ten błysk jest liczony raz, impulsy z okresu zgubienia nie są odtwarzane, a średnia moc nie obejmuje przerwy;
+- komunikat na podglądzie: „Szukam diody kvarh… (4× okno)”, potem „Dioda kvarh odnaleziona”.
+
 ## Testy
 ```
 node tests/detector-test.js            # logika detekcji na sztucznych przebiegach
 node tests/scene-test.js               # sztuczne klatki obrazu: odblask, migotanie 100 Hz, cień, moduł, refleks
 node tests/compare-test.js             # parser eLicznika, eksport aplikacji, zmiana czasu, porównanie
+node tests/reacq-test.js               # odzyskiwanie diody: przesunięcie, skok licznika, odblask-przynęta, dioda Alarm
 node tests/film-test.js film.mp4       # offline na filmie (ffmpeg); FPS=30 symuluje wolniejszą kamerę
 cd tests && npm i && node ui-test.mjs http://localhost:8765/ ../zrzuty [film.y4m]
 node tests/layout-test.mjs http://localhost:8765/ ../zrzuty   # układ: iPhone SE/15/Pro Max/Duo, Galaxy Z Flip6

@@ -70,6 +70,36 @@ let rk = await page.evaluate(() => window.__licznik.rois());
 check('Znajdź diody (symulacja): kWh ≈ 0,36, kvarh ≈ 0,50, ROI przestawione', fr && Math.abs(rk[0].x - 0.36) < 0.02 && Math.abs(rk[1].x - 0.5) < 0.02,
   fr ? fr.cands.map(c => (c.role || 'X') + '@' + c.x.toFixed(2) + ',' + c.y.toFixed(2) + (c.reason ? '(' + c.reason + ')' : '')).join(' ') : 'brak wyniku');
 
+// 3e) re-akwizycja: ROI kvarh "uciekło" (kWh nietknięte), potem skok całego licznika (ręka)
+await page.goto(base + '?sim=1&P=5&Q=1.5&track=0&reacq=1');
+await page.waitForTimeout(7000);
+const k0 = await page.evaluate(() => ({ x: window.__licznik.rois()[0].x, y: window.__licznik.rois()[0].y }));
+await page.evaluate(() => { const r = window.__licznik.rois()[1]; r.x = 0.42; r.y = 0.66; });
+let rqShot = false, rq;
+for (let k = 0; k < 40; k++) {
+  await page.waitForTimeout(500);
+  rq = await page.evaluate(() => ({ r: window.__licznik.rois().map(r => ({ x: r.x, y: r.y })), t: [0, 1].map(i => window.__licznik.rqText(i)), log: window.__licznik.rqLog().map(e => e.type + e.ch) }));
+  if (!rqShot && /Szukam diody kvarh/.test(rq.t[1])) { await page.evaluate(() => window.scrollTo(0, 0)); await page.screenshot({ path: out + '/21-szukam-diody.png' }); rqShot = true; }
+  if (rq.log.includes('found1')) break;
+}
+check('re-akwizycja: kvarh odnaleziona na właściwym miejscu, kWh nietknięte', rqShot && Math.abs(rq.r[1].x - 0.5) < 0.012 && Math.abs(rq.r[1].y - 0.52) < 0.02 && rq.r[0].x === k0.x && rq.r[0].y === k0.y && !rq.log.some(e => /0$/.test(e)), JSON.stringify(rq));
+await page.waitForTimeout(300);
+check('re-akwizycja: komunikat "Dioda kvarh odnaleziona"', /Dioda kvarh odnaleziona/.test(await page.evaluate(() => window.__licznik.rqText(1))));
+await page.screenshot({ path: out + '/22-dioda-odnaleziona.png' });
+await page.goto(base + '?sim=1&P=5&Q=1.5&track=0&reacq=1&jump=0.12,0.2,7');
+await page.waitForFunction(() => window.__licznik && window.__licznik.rqLog, null, { timeout: 15000 });
+await page.waitForFunction(() => window.__licznik.rqLog().some(e => e.type === 'found' && e.ch === 1) && window.__licznik.rqLog().some(e => e.type === 'found' && e.ch === 0), null, { timeout: 40000 }).catch(() => {});
+rq = await page.evaluate(() => { const L = window.__licznik, a = L.records(); const gaps = [0, 1].map(ch => { const t = a.filter(r => r.ch === ch).map(r => r.t); let m = 1e9; for (let i = 1; i < t.length; i++) m = Math.min(m, t[i] - t[i - 1]); return Math.round(m); }); return { r: L.rois().map(r => [+r.x.toFixed(3), +r.y.toFixed(3)]), log: L.rqLog().map(e => e.type + e.ch).join(' '), gaps }; });
+check('re-akwizycja: po skoku licznika obie diody odnalezione (geometria kWh -> kvarh), bez zdublowanych impulsów', Math.abs(rq.r[0][0] - 0.48) < 0.015 && Math.abs(rq.r[1][0] - 0.62) < 0.015 && Math.abs(rq.r[1][1] - 0.72) < 0.03 && rq.gaps[0] > 500 && rq.gaps[1] > 1800, JSON.stringify(rq));
+// profil licznika: lista wyboru, domyślnie Sanxing, zapis w localStorage
+const prof = await page.evaluate(() => ({ opts: [...document.querySelectorAll('#profile option')].map(o => o.textContent), v: document.getElementById('profile').value, d: document.getElementById('profDesc').textContent }));
+check('profil licznika: Sanxing S34U28-PL-T10 (domyślny) i "Inny / ogólny"', prof.v === 'sanxing-s34u28' && prof.opts.includes('Sanxing S34U28-PL-T10') && prof.opts.includes('Inny / ogólny') && /1000 imp\/kWh/.test(prof.d), JSON.stringify(prof));
+await page.evaluate(() => { const s = document.getElementById('profile'); s.value = 'generic'; s.dispatchEvent(new Event('change')); });
+await page.reload(); await page.waitForTimeout(500);
+check('profil licznika: wybór zapamiętany', (await page.evaluate(() => document.getElementById('profile').value)) === 'generic');
+await page.evaluate(() => { const s = document.getElementById('profile'); s.value = 'sanxing-s34u28'; s.dispatchEvent(new Event('change')); });
+
+await page.evaluate(() => localStorage.clear()); // ROI po skoku nie mogą przejść do kolejnych testów
 // 3d) układ telefonu 412x900: podgląd + wyniki bez przewijania, przypięte przy przewijaniu
 await page.setViewportSize({ width: 412, height: 900 });
 await page.goto(base + '?sim=1&P=5&Q=1.5&track=0');

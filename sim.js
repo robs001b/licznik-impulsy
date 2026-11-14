@@ -5,7 +5,7 @@
     var W = 640, H = 360;
     var cv = document.createElement('canvas'); cv.width = W; cv.height = H;
     var g = cv.getContext('2d');
-    var st = { P: 5, Q: 1.5, dur: 100, shake: false, glare: false };
+    var st = { P: 5, Q: 1.5, dur: 100, shake: false, glare: false, jump: null, alarm: false };
     var next = [0, 0], period = [0, 0], running = true, t0 = performance.now();
     var LED = [{ x: 0.36, y: 0.52 }, { x: 0.5, y: 0.52 }, { x: 0.64, y: 0.52 }];
     var MOD = { x: 0.9, y: 0.62 };
@@ -32,6 +32,8 @@
       var on = [now - lastStart[0] < st.dur, now - lastStart[1] < st.dur];
       var dx = 0, dy = 0;
       if (st.shake) { var s = (now - t0) / 1000; dx = 6 * Math.sin(s * 1.7) + 2 * Math.sin(s * 7.3); dy = 4 * Math.sin(s * 1.3 + 1) + 1.5 * Math.sin(s * 9.1); }
+      // test re-akwizycji: nagłe przesunięcie całego licznika (ręka) o [dx, dy] ułamka kadru po "at" s
+      if (st.jump && (now - t0) / 1000 >= st.jump.at) { dx += st.jump.dx * W; dy += st.jump.dy * H; }
       g.setTransform(1, 0, 0, 1, dx, dy);
       g.fillStyle = '#c9ccd0'; g.fillRect(-20, -20, W + 40, H + 40);
       // wyświetlacz
@@ -43,7 +45,7 @@
       // szczelina
       g.fillStyle = '#121212'; g.beginPath(); g.roundRect ? g.roundRect(W * 0.27, H * 0.48, W * 0.46, H * 0.08, 10) : g.rect(W * 0.27, H * 0.48, W * 0.46, H * 0.08); g.fill();
       for (var k = 0; k < 3; k++) {
-        var lx = LED[k].x * W, ly = LED[k].y * H, lit = k < 2 && on[k];
+        var lx = LED[k].x * W, ly = LED[k].y * H, lit = k < 2 ? on[k] : st.alarm && Math.floor((now - t0) / 1700) % 2 === 0 && (now - t0) % 1700 < 120;
         if (lit) {
           var gr = g.createRadialGradient(lx, ly, 2, lx, ly, W * 0.16);
           gr.addColorStop(0, 'rgba(255,60,40,0.75)'); gr.addColorStop(1, 'rgba(255,0,0,0)');

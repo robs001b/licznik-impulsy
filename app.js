@@ -14,13 +14,16 @@
   var records = [], startWall = null, startPerf = null;
   var samples = [[], []], marks = [[], []];
   var peakCentroid = [null, null], peakEx = [0, 0];
+  var RQ = new D.Reacquirer(), lastWins = [null, null], lastCounted = [-1e9, -1e9], rqLog = [];
+  var rc = document.createElement('canvas'), rctx = rc.getContext('2d', { willReadFrequently: true });
+  function profile() { return D.PROFILES[cfg.profile] || D.PROFILES.generic; }
   var frames = 0, fpsT = performance.now(), fps = 0, lastFrameT = 0;
   var sc = document.createElement('canvas'); sc.width = 240; sc.height = 300;
   var sctx = sc.getContext('2d', { willReadFrequently: true });
   var SAMPLE_SPAN = 6000;
 
   function load() {
-    var d = { cK: 1000, cQ: 1000, nAvg: 5, minInt: 60, maxPulse: 300, xtalk: 0.6, mode: 'led', sens: [0.5, 0.5], track: false, focusLock: false, ver: 2,
+    var d = { cK: 1000, cQ: 1000, nAvg: 5, minInt: 60, maxPulse: 300, xtalk: 0.6, mode: 'led', sens: [0.5, 0.5], track: false, focusLock: false, ver: 2, profile: 'sanxing-s34u28', reacq: true,
               rois: { cam: null, sim: null }, cam: {} };
     try { var s = JSON.parse(localStorage.getItem(LS) || '{}'); for (var k in s) d[k] = s[k]; } catch (e) {}
     if (!(d.ver >= 2)) { d.mode = 'led'; d.ver = 2; } // migracja: nowy domyślny sygnał "czerwona dioda"
@@ -63,16 +66,11 @@
     if (!vw || !vh) return;
     var R = rois(), vals = [0, 0], rings = [0, 0], wins = [];
     for (var i = 0; i < 2; i++) {
-      var r = R[i];
-      var sx = (r.x - r.w) * vw, sy = (r.y - r.h) * vh, sw = 2 * r.w * vw, sh = 2 * r.h * vh; // okno 2x ROI
-      var SW = Math.max(8, Math.min(60, Math.round(sw))), SH = Math.max(8, Math.min(80, Math.round(SW * sh / sw)));
-      sctx.drawImage(video, sx, sy, sw, sh, i * 60, 0, SW, SH);
-      var img = sctx.getImageData(i * 60, 0, SW, SH);
-      var inner = { x0: Math.round(SW / 4), x1: Math.round(SW * 3 / 4), y0: Math.round(SH / 4), y1: Math.round(SH * 3 / 4) };
-      var st = D.roiStats(img.data, SW, SH, cfg.mode, inner);
-      vals[i] = st.mean; rings[i] = st.ring;
-      wins.push({ data: img.data, w: SW, h: SH });
+      var sw0 = sampleWin(R[i], i * 60, vw, vh);
+      vals[i] = sw0.st.mean; rings[i] = sw0.st.ring;
+      wins.push(sw0.win);
     }
+    lastWins = wins;
     // globalne tło całego kadru (mała kopia) - zmiana oświetlenia nie może dać impulsu
     var GW = 48, GH = Math.max(8, Math.min(96, Math.round(GW * vh / vw)));
     sctx.drawImage(video, 0, 0, vw, vh, 120, 0, GW, GH);
@@ -89,7 +87,57 @@
       } else peakEx[i] = 0;
     }
     pulses.forEach(function (p) { onPulse(p); });
+    if (cfg.reacq && !finding) reacqFrame(t, vw, vh, vals, glob);
     frames++;
+  }
+  // okno 2x ROI -> statystyki (sygnał w ROI, pierścień wokół)
+  function sampleWin(r, slot, vw, vh) {
+    var sx = (r.x - r.w) * vw, sy = (r.y - r.h) * vh, sw = 2 * r.w * vw, sh = 2 * r.h * vh;
+    var SW = Math.max(8, Math.min(60, Math.round(sw))), SH = Math.max(8, Math.min(80, Math.round(SW * sh / sw)));
+    sctx.drawImage(video, sx, sy, sw, sh, slot, 0, SW, SH);
+    var img = sctx.getImageData(slot, 0, SW, SH);
+    var inner = { x0: Math.round(SW / 4), x1: Math.round(SW * 3 / 4), y0: Math.round(SH / 4), y1: Math.round(SH * 3 / 4) };
+    return { st: D.roiStats(img.data, SW, SH, cfg.mode, inner), win: { data: img.data, w: SW, h: SH } };
+  }
+  // łatka 8x8 jasności okna - do wykrycia, że obraz w oknie się przesunął
+  function patchOf(win) {
+    if (!win) return null;
+    var out = new Float32Array(64), cnt = new Float32Array(64), d = win.data;
+    for (var y = 0; y < win.h; y++) for (var x = 0; x < win.w; x++) {
+      var k = Math.min(7, Math.floor(y * 8 / win.h)) * 8 + Math.min(7, Math.floor(x * 8 / win.w)), o = (y * win.w + x) * 4;
+      out[k] += 0.299 * d[o] + 0.587 * d[o + 1] + 0.114 * d[o + 2]; cnt[k]++;
+    }
+    for (var i = 0; i < 64; i++) out[i] = cnt[i] ? out[i] / cnt[i] : 0;
+    return out;
+  }
+
+  /* ---------- re-akwizycja zgubionej diody (detector.js: Reacquirer) ---------- */
+  function reacqFrame(t, vw, vh, vals, glob) {
+    var R = rois();
+    if (!RQ.v) RQ.setVector(R, true);
+    var io = {
+      rois: R, aspect: vw / vh, glob: glob, xtalk: cfg.xtalk,
+      otherEx: function (i) { return det.ch[1 - i].excess(vals[1 - i]); },
+      patch: function (i) { return patchOf(lastWins[i]); },
+      mapRegion: function (g) {
+        if (rc.width !== g.W || rc.height !== g.H) { rc.width = g.W; rc.height = g.H; }
+        rctx.drawImage(video, g.x0 * vw, g.y0 * vh, (g.x1 - g.x0) * vw, (g.y1 - g.y0) * vh, 0, 0, g.W, g.H);
+        return Uint8ClampedArray.from(D.scoreMap(rctx.getImageData(0, 0, g.W, g.H).data, g.W, g.H, 'led', 3));
+      },
+      sampleRoi: function (r) { return sampleWin(r, 180, vw, vh).st; }
+    };
+    RQ.frame(t, io).forEach(function (e) {
+      rqLog.push({ t: t, type: e.type, ch: e.ch, level: e.level, x: e.roi && e.roi.x, y: e.roi && e.roi.y });
+      if (rqLog.length > 50) rqLog.shift();
+      if (e.type === 'found') {
+        var r = R[e.ch];
+        calc.gap(e.ch); // T i średnia nie obejmują przerwy
+        r.x = e.roi.x; r.y = e.roi.y; clampRoi(r);
+        det.ch[e.ch].reset(); det.rb[e.ch] = new D.Baseline();
+        onPulse({ t: e.pulse.t, ch: e.ch, dur: e.pulse.dur, peak: e.pulse.peak, reacq: true });
+        save();
+      }
+    });
   }
 
   /* ---------- Znajdź diody ---------- */
@@ -119,11 +167,12 @@
     if (left <= 0) { finding = null; setTimeout(function () { finishFind(F); }, 0); }
   }
   function finishFind(F) {
-    var res = D.findLeds(F.maps, F.times, F.AW, F.AH);
+    var res = D.findLeds(F.maps, F.times, F.AW, F.AH, { profile: profile() });
     $('btnFind').disabled = false; $('btnFind').textContent = 'Znajdź diody';
     lastFind = { res: res, t: performance.now() };
     var R = rois(), set = 0;
     res.roi.forEach(function (r, i) { if (r) { R[i] = clampRoi(r); det.ch[i].reset(); set++; } });
+    if (set) { RQ.reset(); RQ.v = null; if (res.roi[0] && res.roi[1]) RQ.setVector(R, true); }
     if (set) save();
     var acc = res.cands.filter(function (c) { return c.ok; }), rej = res.cands.filter(function (c) { return !c.ok && showCand(c); });
     var other = res.cands.length - acc.length - rej.length;
@@ -146,17 +195,25 @@
   window.__find = function () { return lastFind && lastFind.res; };
 
   function onPulse(p) {
+    if (p.t - lastCounted[p.ch] < Math.max(30, cfg.minInt)) return; // ten sam błysk z dwóch torów (re-akwizycja) - liczony raz
+    if (cfg.reacq && !p.reacq && RQ.suppress(p.ch)) { RQ.pulse(p.ch, p.t, rois(), null, true); rqLog.push({ t: p.t, type: 'pominięty', ch: p.ch }); if (rqLog.length > 50) rqLog.shift(); return; } // ROI na złej diodzie (geometria)
+    lastCounted[p.ch] = p.t;
     if (startPerf == null) { startPerf = p.t; startWall = Date.now() - (performance.now() - p.t); }
     var rec = calc.add(p.ch, p.t);
     rec.wall = startWall + (p.t - startPerf); rec.rel = (p.t - startPerf) / 1000; rec.dur = p.dur;
     records.push(rec);
     if (records.length === 1) $('savedSes').hidden = true;
     marks[p.ch].push(p.t);
-    if (cfg.track && peakCentroid[p.ch]) {
-      var r = rois()[p.ch], c = peakCentroid[p.ch];
-      r.x += (c.x - 0.5) * 2 * r.w * 0.5; r.y += (c.y - 0.5) * 2 * r.h * 0.5; clampRoi(r);
+    if (cfg.track && peakCentroid[p.ch] && !p.reacq) {
+      // usztywnione śledzenie: połowa odchyłki, krok maks. 0,35 szer. ROI, nie w stronę drugiej diody
+      var R2 = rois(), r = R2[p.ch], o2 = R2[1 - p.ch], c = peakCentroid[p.ch];
+      var mx = (c.x - 0.5) * 2 * r.w * 0.5, my = (c.y - 0.5) * 2 * r.h * 0.5, lim = 0.35 * r.w, len = Math.hypot(mx, my * r.w / r.h);
+      if (len > lim) { mx *= lim / len; my *= lim / len; }
+      var dNow = Math.hypot(r.x - o2.x, r.y - o2.y), dNew = Math.hypot(r.x + mx - o2.x, r.y + my - o2.y);
+      if (!(dNew < dNow && dNew < 1.2 * (r.w + o2.w))) { r.x += mx; r.y += my; clampRoi(r); }
       peakCentroid[p.ch] = null;
     }
+    RQ.pulse(p.ch, p.t, rois(), patchOf(lastWins[p.ch]));
   }
 
   /* ---------- pętla klatek ---------- */
@@ -238,7 +295,7 @@
 
   function resetMeasure() {
     det.reset(); calc.reset(); records = []; samples = [[], []]; marks = [[], []]; startPerf = null; startWall = null;
-    session = { start: Date.now(), end: null }; exportedN = 0; savedN = 0;
+    session = { start: Date.now(), end: null }; exportedN = 0; savedN = 0; RQ.reset(); lastCounted = [-1e9, -1e9];
   }
   var session = { start: Date.now(), end: null }; // granice pomiaru do eksportu (porównanie z eLicznikiem)
 
@@ -377,7 +434,7 @@
       det.ch[drag.i].reset();
       if (drag.i === 0) setActive(1);
     } else det.ch[drag.i].reset();
-    drag = null; save(); if (lastFind) lastFind.t = -1e9;
+    drag = null; save(); RQ.reset(); RQ.setVector(rois(), true); if (lastFind) lastFind.t = -1e9;
   }
   overlay.addEventListener('pointerup', endDrag);
   overlay.addEventListener('pointercancel', endDrag);
@@ -386,7 +443,7 @@
     document.querySelectorAll('.roisel').forEach(function (b) { b.classList.toggle('on', Number(b.dataset.ch) === i); });
   }
   document.querySelectorAll('.roisel').forEach(function (b) { b.addEventListener('click', function () { setActive(Number(b.dataset.ch)); }); });
-  function resize(f) { var r = rois()[active]; r.w *= f; r.h *= f; clampRoi(r); det.ch[active].reset(); save(); }
+  function resize(f) { var r = rois()[active]; r.w *= f; r.h *= f; clampRoi(r); det.ch[active].reset(); RQ.reset(); RQ.setVector(rois(), true); save(); }
   $('roiMinus').onclick = function () { resize(1 / 1.25); };
   $('roiPlus').onclick = function () { resize(1.25); };
 
@@ -395,6 +452,34 @@
     var dpr = window.devicePixelRatio || 1, w = Math.round(c.clientWidth * dpr), h = Math.round(c.clientHeight * dpr);
     if (c.width !== w || c.height !== h) { c.width = w; c.height = h; }
     return dpr;
+  }
+  var LVL = ['2× okno', '4× okno', 'pół kadru', 'cały kadr'];
+  function rqText(i) {
+    var s = RQ.state(i), now = performance.now();
+    if (s.mode === 'search') return 'Szukam diody ' + NAMES[i] + '… (' + LVL[Math.min(s.level, 3)] + ')';
+    if (s.mode === 'confirm') return 'Szukam diody ' + NAMES[i] + '… - czekam na błysk';
+    if (s.msg === 'found' && now - s.msgT < 5000) return 'Dioda ' + NAMES[i] + ' odnaleziona';
+    return '';
+  }
+  function drawReacq(dpr, W, H) {
+    var R = rois();
+    for (var i = 0; i < 2; i++) {
+      var s = RQ.state(i), txt = rqText(i);
+      if (s.mode === 'search' && s.region) {
+        var g = s.region; octx.setLineDash([2 * dpr, 5 * dpr]); octx.strokeStyle = COLORS[i]; octx.lineWidth = 1.5 * dpr;
+        octx.strokeRect(g.x0 * W, g.y0 * H, (g.x1 - g.x0) * W, (g.y1 - g.y0) * H); octx.setLineDash([]);
+      }
+      if (s.mode === 'confirm' && s.cand) {
+        octx.strokeStyle = COLORS[i]; octx.lineWidth = 2 * dpr; octx.setLineDash([3 * dpr, 3 * dpr]);
+        octx.beginPath(); octx.arc(s.cand.x * W, s.cand.y * H, Math.max(8 * dpr, s.cand.w * W * 0.8), 0, 7); octx.stroke(); octx.setLineDash([]);
+      }
+      if (!txt) continue;
+      var r = R[i], fs = 11 * dpr;
+      octx.font = 'bold ' + fs + 'px sans-serif';
+      var tw = octx.measureText(txt).width, tx = Math.min(W - tw - 6 * dpr, Math.max(4 * dpr, r.x * W - tw / 2)), ty = Math.min(H - 6 * dpr, (r.y + r.h) * H + (i ? 30 : 16) * dpr);
+      octx.fillStyle = 'rgba(0,0,0,0.65)'; octx.fillRect(tx - 3 * dpr, ty - fs, tw + 6 * dpr, fs + 5 * dpr);
+      octx.fillStyle = s.mode === 'track' ? '#3fb950' : COLORS[i]; octx.fillText(txt, tx, ty);
+    }
   }
   function drawOverlay() {
     var dpr = fitCanvas(overlay), W = overlay.width, H = overlay.height;
@@ -413,6 +498,7 @@
       octx.font = (12 * dpr) + 'px sans-serif'; octx.fillStyle = COLORS[i];
       octx.fillText(NAMES[i], x, y - 4 * dpr);
     }
+    if (cfg.reacq) drawReacq(dpr, W, H);
     if (lastFind && performance.now() - lastFind.t < 20000) {
       lastFind.res.cands.filter(showCand).forEach(function (c) {
         var cx = c.x * W, cy = c.y * H, rr = Math.max(8 * dpr, c.r * W * 2.2);
@@ -619,6 +705,8 @@
     calc.c = [cfg.cK, cfg.cQ]; calc.N = Math.round(cfg.nAvg);
     det.xtalk = cfg.xtalk;
     det.ch.forEach(function (ch, i) { ch.set({ minIntervalMs: cfg.minInt, maxPulseMs: cfg.maxPulse, sens: cfg.sens[i] }); });
+    RQ.chOpts = { minIntervalMs: cfg.minInt, maxPulseMs: cfg.maxPulse, sens: (cfg.sens[0] + cfg.sens[1]) / 2 };
+    RQ.profile = profile();
     document.querySelectorAll('.nLbl').forEach(function (e) { e.textContent = Math.round(cfg.nAvg); });
   }
   bindNum('cK', 'cK', applyCfg); bindNum('cQ', 'cQ', applyCfg); bindNum('nAvg', 'nAvg', applyCfg); bindNum('minInt', 'minInt', applyCfg); bindNum('maxPulse', 'maxPulse', applyCfg);
@@ -637,6 +725,21 @@
   $('pin').checked = cfg.pin;
   var applyPin = function () { $('stick').classList.toggle('pinned', !!cfg.pin); document.documentElement.style.setProperty('--camh', cfg.pin ? '38vh' : '42vh'); };
   $('pin').addEventListener('change', function (e) { cfg.pin = e.target.checked; save(); applyPin(); }); applyPin();
+  $('reacq').checked = cfg.reacq !== false;
+  $('reacq').addEventListener('change', function (e) { cfg.reacq = e.target.checked; RQ.reset(); save(); });
+  (function () {
+    var sel = $('profile');
+    Object.keys(D.PROFILES).forEach(function (k) { var op = document.createElement('option'); op.value = k; op.textContent = D.PROFILES[k].name; sel.appendChild(op); });
+    if (!D.PROFILES[cfg.profile]) cfg.profile = 'sanxing-s34u28';
+    sel.value = cfg.profile;
+    var show = function () { var P = profile(); $('profDesc').textContent = P.desc + (P.cK ? ' Stałe: ' + P.cK + ' imp/kWh, ' + P.cQ + ' imp/kvarh.' : ''); };
+    sel.addEventListener('change', function () {
+      cfg.profile = sel.value; var P = profile();
+      if (P.cK) { cfg.cK = P.cK; cfg.cQ = P.cQ; $('cK').value = P.cK; $('cQ').value = P.cQ; }
+      applyCfg(); RQ.reset(); save(); show();
+    });
+    show();
+  })();
   $('track').checked = !!cfg.track;
   $('track').addEventListener('change', function (e) { cfg.track = e.target.checked; save(); });
   applyCfg();
@@ -658,12 +761,17 @@
   $('btnReset').onclick = function () { resetMeasure(); status('Wyzerowano pomiar.'); };
 
   var q = new URLSearchParams(location.search);
+  if (q.has('reacq')) { cfg.reacq = q.get('reacq') === '1'; $('reacq').checked = cfg.reacq; }
+  if (q.has('profile') && D.PROFILES[q.get('profile')]) { cfg.profile = q.get('profile'); $('profile').value = cfg.profile; applyCfg(); }
   if (q.has('track')) { cfg.track = q.get('track') === '1'; $('track').checked = cfg.track; }
   if (q.get('sim')) {
     if (q.get('P')) $('simP').value = q.get('P');
     if (q.get('Q')) $('simQ').value = q.get('Q');
     if (q.get('dur')) $('simDur').value = q.get('dur');
     if (q.get('shake')) $('simShake').checked = true;
+    var jq = (q.get('jump') || '').split(',').map(Number);
+    if (jq.length === 3 && jq.every(isFinite)) setTimeout(function () { if (sim) sim.set('jump', { at: jq[2], dx: jq[0], dy: jq[1] }); }, 0);
+    if (q.get('alarm')) setTimeout(function () { if (sim) sim.set('alarm', true); }, 0);
     if (q.get('glare')) $('simGlare').checked = true;
     startSim();
   } else if (q.get('cam')) startCam();
@@ -680,5 +788,5 @@
     });
   })();
   showSaved();
-  window.__licznik = { records: function () { return records; }, calc: calc, det: det, rois: rois, fps: function () { return fps; } };
+  window.__licznik = { rq: RQ, rqLog: function () { return rqLog; }, rqText: rqText, records: function () { return records; }, calc: calc, det: det, rois: rois, fps: function () { return fps; } };
 })();
