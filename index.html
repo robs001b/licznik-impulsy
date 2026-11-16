@@ -10,34 +10,28 @@
 <link rel="apple-touch-icon" href="icon-192.png">
 <link rel="stylesheet" href="style.css">
 </head>
-<body>
-<header>
-  <h1>Licznik impulsów</h1>
-  <p class="sub">Moc czynna i bierna z diod kWh / kvarh przez aparat</p>
-</header>
+<body class="app-home">
+<header class="app-header"><div class="app-brand"><span class="app-brand-icon" aria-hidden="true">ϟ</span><span>Licznik impulsów</span></div></header>
 
 <main>
-  <section class="bar">
-    <button id="btnCam" class="primary">Start kamery</button>
-    <button id="btnStop" disabled>Stop</button>
-  </section>
-  <p id="status" class="status">Wybierz "Start kamery" i ustaw telefon nieruchomo przed licznikiem.</p>
+  <div class="app-intro"><p class="app-eyebrow">Pomiar energii</p><h1>Zobacz, ile zużywasz.</h1><p>Śledź pomiar z diod licznika za pomocą aparatu telefonu.</p></div>
+  <div class="camera-heading"><div><strong>Podgląd licznika</strong><span>Skieruj aparat na diody kWh i kvarh</span></div></div>
 
    <div id="stick" class="stick">
     <div id="cam" class="cam">
       <video id="video" playsinline muted autoplay></video>
       <canvas id="overlay"></canvas>
-      <div id="camHint" class="camhint">Brak obrazu</div>
+      <div id="camHint" class="camhint"><span><span class="camera-icon" aria-hidden="true"></span><strong>Włącz kamerę, aby rozpocząć</strong><br>Ustaw telefon stabilnie przed licznikiem</span></div>
     </div>
     <div class="resbar" id="resbar">
       <div class="rb k0b">
-        <div class="rbv"><span class="rbl">P</span> <b id="bpInst">-</b> <small>kW</small><i class="flash" id="bfl0"></i></div>
+        <div class="reading-label">Moc czynna · P</div><div class="rbv"><span class="rbl">P</span> <b id="bpInst">-</b> <small>kW</small><i class="flash" id="bfl0"></i></div>
         <div class="rbs">śr. <b id="bpAvg">-</b> · T <b id="bpT">-</b></div>
         <div class="rbs">od imp. <b id="bpSince">-</b> · <b id="bpCnt">0</b> imp.</div>
         <div class="rbs rbsum">Suma: <b id="bpE">0,000</b> kWh</div>
       </div>
       <div class="rb k1b">
-        <div class="rbv"><span class="rbl">Q</span> <b id="bqInst">-</b> <small>kvar</small><i class="flash" id="bfl1"></i></div>
+        <div class="reading-label">Moc bierna · Q</div><div class="rbv"><span class="rbl">Q</span> <b id="bqInst">-</b> <small>kvar</small><i class="flash" id="bfl1"></i></div>
         <div class="rbs">śr. <b id="bqAvg">-</b> · T <b id="bqT">-</b></div>
         <div class="rbs">od imp. <b id="bqSince">-</b> · <b id="bqCnt">0</b> imp.</div>
         <div class="rbs rbsum">Suma: <b id="bqE">0,000</b> kvarh</div>
@@ -46,6 +40,8 @@
     </div>
    </div>
   <section class="camwrap">
+    <div class="bar camera-actions"><button id="btnCam" class="primary">Uruchom kamerę</button><button id="btnStop" disabled>Zatrzymaj</button></div>
+    <p id="status" class="status" role="status">Wybierz „Uruchom kamerę” i ustaw telefon nieruchomo przed licznikiem.</p>
     <div class="bar top">
       <button id="btnFind" class="find">Znajdź diody</button>
       <button id="btnCsv">Eksport CSV</button>
@@ -58,6 +54,7 @@
     </div>
   </section>
 
+  <h2 class="app-section-title">Szczegóły i ustawienia</h2>
   <details class="sec" id="secSig" data-open>
     <summary>Sygnał diod na żywo</summary>
     <div class="sig">
@@ -202,3 +199,4 @@
 <script src="app.js"></script>
 </body>
 </html>
+
