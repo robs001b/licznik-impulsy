@@ -135,3 +135,80 @@ details.sec select{width:auto}
 @media (prefers-color-scheme: light){.support{border-color:#3a4554}}
 .rbsum{color:var(--tx)}
 @media (max-height:520px){.stick.pinned{position:relative;top:auto;box-shadow:none;border-bottom:0;border-radius:14px}}
+
+
+/* Wygląd strony głównej */
+body.app-home {
+  --bg: #f7f5f8;
+  --pn: #fff;
+  --pn2: #f8f5f8;
+  --tx: #30283a;
+  --mu: #776d7c;
+  --k0: #e4007d;
+  --k1: #8658bc;
+  --ac: #e4007d;
+  background: var(--bg);
+  color: var(--tx);
+  font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+.app-home .app-header { max-width: none; padding: 0; background: #fff; border-bottom: 1px solid #eee8ef; }
+.app-home .app-brand { max-width: 720px; height: 74px; margin: auto; padding: 0 20px; display: flex; align-items: center; gap: 12px; font-weight: 750; }
+.app-home .app-brand-icon { display: grid; place-items: center; width: 39px; height: 39px; color: #fff; background: #e4007d; border-radius: 13px; font-size: 21px; }
+.app-home main { padding: 0 20px 20px; }
+.app-home .app-intro { padding: 35px 0 21px; }
+.app-home .app-intro .app-eyebrow { color: #bd0871; font-size: 11px; font-weight: 750; letter-spacing: .14em; text-transform: uppercase; }
+.app-home .app-intro h1 { margin: 8px 0; font-size: clamp(31px, 7vw, 47px); line-height: 1.1; letter-spacing: -.05em; }
+.app-home .app-intro p { margin: 0; color: #716777; font-size: 14px; }
+.app-home .camera-heading { padding: 18px 18px 8px; border-radius: 24px 24px 0 0; background: #291c35; color: #fff; }
+.app-home .camera-heading strong, .app-home .camera-heading span { display: block; }
+.app-home .camera-heading span { color: #d1bfd0; font-size: 12px; }
+.app-home .stick { padding: 10px 18px 14px; border-radius: 0; background: #291c35; }
+.app-home .stick.pinned { border-radius: 0 0 16px 16px; border-color: #5b415b; }
+.app-home .cam { border: 1px solid #ffffff24; border-radius: 16px; background: linear-gradient(150deg, #191321, #110d16); }
+.app-home .camhint { color: #d2c2d0; font-size: 13px; text-align: center; }
+.app-home .camhint strong { color: #fff; font-size: 14px; }
+.app-home .camera-icon { position: relative; display: block; width: 56px; height: 44px; border: 2px solid #d6bdce; border-radius: 13px; margin: 0 auto 12px; }
+.app-home .camera-icon:after { content: ''; position: absolute; width: 16px; height: 16px; border: 2px solid #d6bdce; border-radius: 50%; left: 17px; top: 11px; }
+.app-home .resbar { gap: 9px; margin-top: 12px; }
+.app-home .rb { min-width: 0; border: 1px solid #ede7ee; border-radius: 15px; padding: 11px; background: #fff; }
+.app-home .rb.k0b { border-top: 3px solid #e4007d; }
+.app-home .rb.k1b { border-top: 3px solid #8658bc; }
+.app-home .reading-label { font-size: 11px; font-weight: 700; color: #766b79; }
+.app-home .rbl { display: none; }
+.app-home .rbv { margin: 5px 0; color: #30283a; font-size: clamp(1.4rem, 6vw, 2rem); }
+.app-home .rbs { color: #706676; white-space: normal; overflow-wrap: anywhere; }
+.app-home .rbs b { color: #30283a; }
+.app-home .rbsum { margin-top: 7px; padding-top: 7px; border-top: 1px solid #f0ebf1; }
+.app-home .rbfoot { color: #e2d4e0; white-space: normal; }
+.app-home .rbfoot b { color: #fff; }
+.app-home .stick + .camwrap { margin: 0; padding: 0 18px 18px; border-radius: 0 0 24px 24px; background: #291c35; box-shadow: 0 20px 45px #34203c20; }
+.app-home button, .app-home select, .app-home input[type=number] { background: #fff; border: 1px solid #e8dfe8; border-radius: 12px; color: #45374a; }
+.app-home button { font-weight: 700; cursor: pointer; }
+.app-home button.primary { flex: 2; background: #e4007d; border-color: #e4007d; color: white; }
+.app-home .camera-actions { margin: 0; }
+.app-home .camera-actions #btnStop { background: #ffffff18; border-color: #ffffff33; color: #fff; }
+.app-home .status { color: #dfcddd; margin: 12px 3px; }
+.app-home .status.err { color: #ffbacf; }
+.app-home .bar.top button { background: #fff; }
+.app-home .cmpl { padding: 13px; margin: 10px 0 0; border-radius: 12px; background: #fbeaf4; }
+.app-home a { color: #9b125e; }
+.app-home .cmpl .mu { display: block; color: #705768; }
+.app-home .app-section-title { margin: 32px 0 14px; font-size: 19px; letter-spacing: -.03em; }
+.app-home details.sec { background: #fff; border: 1px solid #eee8ef; border-radius: 15px; padding: 15px 17px; margin: 9px 0; }
+.app-home details.sec > summary { padding: 0; font-size: 15px; }
+.app-home details p, .app-home details li { color: #665c6b; }
+.app-home .card, .app-home .panel { border: 1px solid #eee8ef; }
+.app-home .sigc, .app-home .chartc { background: #f6f2f6; }
+.app-home .saved { background: #fbeaf4; }
+.app-home .btnlnk { background: #fff; color: #45374a; border-color: #e8dfe8; }
+.app-home .support { background: #fff; border-color: #eee8ef; box-shadow: 0 8px 26px #32203908; }
+.app-home .sup-t { color: #665c6b; }
+.app-home .beer { color: #1a1200; }
+.app-home button:focus-visible, .app-home a:focus-visible, .app-home summary:focus-visible, .app-home input:focus-visible, .app-home select:focus-visible { outline: 3px solid #dc1681; outline-offset: 3px; }
+@media (max-width: 390px) { .app-home main { padding-left: 14px; padding-right: 14px; } .app-home .stick { padding-left: 12px; padding-right: 12px; } .app-home .rb { padding: 8px; } }
+@media (max-height: 520px) { .app-home .stick.pinned { border-radius: 0; } }
+/* Kolory serii odpowiadają oznaczeniom w podglądzie i na wykresach. */
+.app-home { --k0: #ff5a4f; --k1: #ffb020; }
+.app-home .rb.k0b { border-top-color: var(--k0); }
+.app-home .rb.k1b { border-top-color: var(--k1); }
+.app-home .sigc, .app-home .chartc { background: #0b0e13; }
