@@ -18,9 +18,11 @@ node tests/detector-test.js
 node tests/scene-test.js
 node tests/compare-test.js
 node tests/reacq-test.js                    # odzyskiwanie zgubionej diody, profil Sanxing (Alarm)
+node tests/widok-test.js                    # mapowanie współrzędnych podglądu cover
 node tests/film-test.js <film.mp4>          # opcjonalnie, film lokalny poza repo
 cd tests && npm i && node ui-test.mjs http://localhost:8765/ ../zrzuty [film.y4m]
 node tests/layout-test.mjs http://localhost:8765/ ../zrzuty   # układ na telefonach
+node tests/cover-test.mjs http://localhost:8765/ /tmp      # podgląd cover w przeglądarce (atrapa pionowej kamery)
 ```
 Serwer lokalny: `python3 -m http.server 8765` w katalogu projektu.
 

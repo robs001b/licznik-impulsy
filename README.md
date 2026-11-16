@@ -40,15 +40,20 @@ Uwaga: dioda kvarh może sumować energię bierną indukcyjną i pojemnościową
 - ROI przechodzi na nowe miejsce dopiero po potwierdzonym błysku (impuls 20-350 ms w ciągu max(8 s, 2,5×T)); ten błysk jest liczony raz, impulsy z okresu zgubienia nie są odtwarzane, a średnia moc nie obejmuje przerwy;
 - komunikat na podglądzie: „Szukam diody kvarh… (4× okno)”, potem „Dioda kvarh odnaleziona”.
 
+## Wygląd
+Motyw w Ustawieniach licznika i detekcji (zapamiętany w przeglądarce): **Różowy** (domyślny), **Tauron**, **Klasyczny ciemny**. Podgląd kamery wypełnia szerokość karty (ramka 4:3, `object-fit: cover`): pionowy obraz jest przycięty góra/dół, a kadr sam przesuwa się do obszarów diod. Obszary, nakładka i dotyk są przeliczane na piksele analizowanej klatki (`widok.js`).
+
 ## Testy
 ```
 node tests/detector-test.js            # logika detekcji na sztucznych przebiegach
 node tests/scene-test.js               # sztuczne klatki obrazu: odblask, migotanie 100 Hz, cień, moduł, refleks
 node tests/compare-test.js             # parser eLicznika, eksport aplikacji, zmiana czasu, porównanie
 node tests/reacq-test.js               # odzyskiwanie diody: przesunięcie, skok licznika, odblask-przynęta, dioda Alarm
+node tests/widok-test.js              # podgląd cover: przeliczanie współrzędnych ekran <-> klatka (przycięcie, przesunięcie kadru)
 node tests/film-test.js film.mp4       # offline na filmie (ffmpeg); FPS=30 symuluje wolniejszą kamerę
 cd tests && npm i && node ui-test.mjs http://localhost:8765/ ../zrzuty [film.y4m]
 node tests/layout-test.mjs http://localhost:8765/ ../zrzuty   # układ: iPhone SE/15/Pro Max/Duo, Galaxy Z Flip6
+node tests/cover-test.mjs http://localhost:8765/ /tmp      # pionowa kamera 720x1280: obraz, nakładka i dotyk zgodne z klatką
 ```
 
 ## Wsparcie

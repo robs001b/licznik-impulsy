@@ -33,14 +33,14 @@ export async function layoutChecks(base, out, check, devices = DEVICES) {
           const out = { y, ok: true, why: [], sw: document.documentElement.scrollWidth, gap: Math.round(R(document.getElementById('btnFind')).top - fR.bottom) };
           if (out.sw > innerWidth) { out.ok = false; out.why.push('przewijanie w poziomie ' + out.sw); }
           const fy = (fR.top + fR.bottom) / 2;
-          if (fy > 0 && fy < innerHeight && !inside(document.elementFromPoint(fR.left + 30, fy), foot)) { out.ok = false; out.why.push('cos φ zasłonięte'); }
+          if (fy > 0 && fy < innerHeight - 1 && !inside(document.elementFromPoint(fR.left + 30, fy), foot)) { out.ok = false; out.why.push('cos φ zasłonięte'); }
           if (fR.bottom > sR.bottom + 0.5) { out.ok = false; out.why.push('cos φ poza blokiem podglądu'); }
           for (const id of ['btnFind', 'btnCsv']) {
             const bt = document.getElementById(id), bR = R(bt), cx = (bR.left + bR.right) / 2;
             if (bR.right > innerWidth + 0.5) { out.ok = false; out.why.push(id + ' wychodzi poza ekran'); }
             if (y === 0 && bR.top < fR.bottom + 6) { out.ok = false; out.why.push(id + ' za blisko cos φ (' + Math.round(bR.top - fR.bottom) + ' px)'); }
             for (const yy of [bR.top + 3, (bR.top + bR.bottom) / 2, bR.bottom - 3]) {
-              if (yy < 0 || yy > innerHeight) continue;
+              if (yy < 0 || yy >= innerHeight - 1) continue; // punkt na samej krawędzi jest już poza ekranem
               const hit = document.elementFromPoint(cx, yy);
               if (yy < sR.bottom ? !inside(hit, stick) : !inside(hit, bt)) { out.ok = false; out.why.push(id + ' nakłada się (y=' + Math.round(yy) + ')'); }
             }

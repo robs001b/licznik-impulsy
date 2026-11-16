@@ -8,13 +8,14 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icon-192.png">
-<link rel="stylesheet" href="style.css?v=11">
+<link rel="stylesheet" href="style.css?v=12">
 </head>
-<body class="app-home">
+<body class="app-home theme-roz">
+<script src="theme.js?v=12"></script>
 <header class="app-header"><div class="app-brand"><span class="app-brand-icon" aria-hidden="true">ϟ</span><span>Licznik impulsów</span></div></header>
 
 <main>
-  <div class="app-intro"><p class="app-eyebrow">Pomiar energii</p><h1>Zobacz, ile zużywasz.</h1><p>Śledź pomiar z diod licznika za pomocą aparatu telefonu.</p></div>
+  <div class="app-intro"><p class="app-eyebrow">Twoja energia pod kontrolą</p><h1>Zobacz, ile zużywasz.</h1><p>Śledź pomiar z diod licznika za pomocą aparatu telefonu.</p></div>
   <div class="camera-heading"><div><strong>Podgląd licznika</strong><span>Skieruj aparat na diody kWh i kvarh</span></div></div>
 
    <div id="stick" class="stick">
@@ -47,7 +48,7 @@
       <button id="btnCsv">Eksport CSV</button>
     </div>
     <div id="findList" class="findlist"></div>
-    <p class="cmpl"><a href="porownanie.html" class="lnk" id="lnkCmp">Porównanie z eLicznikiem Tauron →</a> <span class="mu">(z danymi najpierw sam zapisze eksport CSV)</span></p>
+    <p class="cmpl"><a href="porownanie.html" class="lnk" id="lnkCmp">Porównanie z eLicznikiem Tauron <span class="arr" aria-hidden="true">→</span></a> <span class="mu">(z danymi najpierw sam zapisze eksport CSV)</span></p>
     <div id="savedSes" class="saved" hidden>
       <p id="savedTxt"></p>
       <div class="bar"><button id="savedDl">Pobierz CSV</button><a class="btnlnk" href="porownanie.html">Porównaj</a><button id="savedDel">Usuń</button></div>
@@ -147,6 +148,7 @@
   <details class="sec" id="secSet">
     <summary>Ustawienia licznika i detekcji</summary>
     <div class="panel0">
+    <label>Motyw wyglądu <select id="theme" aria-label="Motyw wyglądu"></select></label>
     <label>Profil licznika <select id="profile"></select></label>
     <p class="hint" id="profDesc"></p>
     <label>Stała kWh [imp/kWh] <input type="number" id="cK" value="1000" min="1" step="1" inputmode="numeric"></label>
@@ -195,6 +197,7 @@
 </footer>
 
 <script src="detector.js"></script>
+<script src="widok.js"></script>
 <script src="sim.js"></script>
 <script src="app.js"></script>
 </body>

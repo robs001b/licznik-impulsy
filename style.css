@@ -14,9 +14,9 @@ button:disabled{opacity:.45}
 .status{color:var(--mu);font-size:.82rem;margin:2px 2px 6px;min-height:1.2em}
 .status.err{color:#ff7b72}
 .camwrap{background:var(--pn);border-radius:14px;padding:8px}
-.cam{position:relative;margin:0 auto;width:min(100%,calc(var(--camh,42vh) * var(--ar,1.333)));aspect-ratio:var(--ar,1.333);background:#000;border-radius:10px;overflow:hidden;touch-action:none}
+.cam{position:relative;margin:0 auto;width:min(100%,calc(var(--camh,42vh) * var(--box-ar,1.333)));aspect-ratio:var(--box-ar,1.333);background:#000;border-radius:10px;overflow:hidden;touch-action:none}
 .cam video,.cam canvas{position:absolute;inset:0;width:100%;height:100%}
-.cam video{object-fit:fill}
+.cam video{object-fit:cover;object-position:50% 50%}
 .camhint{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--mu);pointer-events:none}
 .roibar{display:flex;gap:6px;margin-top:8px}
 .roibar button{padding:8px 10px}
@@ -212,3 +212,59 @@ body.app-home {
 .app-home .rb.k0b { border-top-color: var(--k0); }
 .app-home .rb.k1b { border-top-color: var(--k1); }
 .app-home .sigc, .app-home .chartc { background: #0b0e13; }
+
+/* ===== Motywy (theme.js): Różowy = domyślny (demo-wygladu.html), Tauron = wygląd z PR #2, Klasyczny = dawny ciemny ===== */
+/* Różowy: dopracowanie wg demo - poświata w nagłówku podglądu, narożniki kadru, kropki serii, karty, plus/minus w sekcjach */
+.theme-roz .camera-heading { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 10px; background: radial-gradient(240px 70px at 100% 0, #b9087788, transparent), #291c35; }
+.theme-roz .camera-heading strong { font-weight: 700; }
+.theme-roz .camera-heading::after { content: 'Kamera'; flex: 0 0 auto; padding-left: 14px; font-size: 11px; color: #e3d8e1; background: radial-gradient(circle at 3.5px 50%, #e6007e 3.5px, transparent 4.5px); }
+.theme-roz .camhint::before, .theme-roz .camhint::after { content: ''; position: absolute; width: 36px; height: 36px; border: 0 solid #de3c94; opacity: .6; }
+.theme-roz .camhint::before { left: 20px; top: 20px; border-width: 2px 0 0 2px; border-radius: 6px 0 0; }
+.theme-roz .camhint::after { right: 20px; bottom: 20px; border-width: 0 2px 2px 0; border-radius: 0 0 6px; }
+.theme-roz .rb { border-radius: 18px; box-shadow: 0 8px 26px #32203908; }
+.theme-roz .rb.k0b, .theme-roz .rb.k1b { border-top: 1px solid #ede7ee; }
+.theme-roz .reading-label { display: flex; align-items: center; gap: 7px; font-weight: 650; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.theme-roz .reading-label::before { content: ''; flex: 0 0 9px; height: 9px; border-radius: 50%; background: var(--k0); }
+.theme-roz .rb.k1b .reading-label::before { background: var(--k1); }
+.theme-roz .rbv { letter-spacing: -.04em; font-weight: 750; }
+.theme-roz .bar.top { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 0; }
+.theme-roz .bar.top button { min-height: 48px; color: #55485b; border-color: #e9e1e9; }
+.theme-roz #btnFind::before { content: '◎\00a0\00a0'; }
+.theme-roz #btnCsv::before { content: '↓\00a0\00a0'; }
+.theme-roz .camwrap .bar.top { margin-top: 4px; }
+.theme-roz .cmpl { margin-top: 12px; padding: 16px 18px; border: 1px solid #f6d6e9; border-radius: 16px; font-size: 13px; }
+.theme-roz #lnkCmp { display: flex; justify-content: space-between; align-items: center; gap: 14px; color: #8f155e; font-weight: 700; text-decoration: none; }
+.theme-roz #lnkCmp .arr { font-size: 19px; }
+.theme-roz .cmpl .mu { margin-top: 4px; font-size: 12px; }
+.theme-roz details.sec { box-shadow: 0 4px 16px #32203906; }
+.theme-roz details.sec > summary { display: flex; justify-content: space-between; align-items: center; gap: 10px; list-style: none; font-weight: 650; }
+.theme-roz details.sec > summary::-webkit-details-marker { display: none; }
+.theme-roz details.sec > summary::after { content: ''; flex: 0 0 14px; height: 14px; background: linear-gradient(#b20a6c, #b20a6c) center / 14px 2px no-repeat, linear-gradient(#b20a6c, #b20a6c) center / 2px 14px no-repeat; }
+.theme-roz details.sec[open] > summary::after { background: linear-gradient(#b20a6c, #b20a6c) center / 14px 2px no-repeat; }
+.theme-roz details.sec[open] > summary { margin-bottom: 12px; }
+.theme-roz footer { color: #aaa0ac; font-size: 12px; }
+@media (max-width: 390px) { .theme-roz .rb { padding: 10px; } .theme-roz .cmpl { padding: 14px; } }
+
+/* Klasyczny ciemny: elementy nowego układu ukryte, zostaje dawny wygląd */
+.theme-klasyczny .app-intro, .theme-klasyczny .camera-heading, .theme-klasyczny .app-section-title, .theme-klasyczny .reading-label, .theme-klasyczny .camera-icon { display: none; }
+.theme-klasyczny .app-brand { display: flex; align-items: center; gap: 8px; font-size: 1.15rem; font-weight: 700; padding: 0 0 8px; }
+.theme-klasyczny .app-brand-icon { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 8px; background: var(--ac); color: #fff; font-size: 16px; }
+.theme-klasyczny .camera-actions { margin: 0 0 6px; }
+.theme-klasyczny .camhint strong { color: var(--tx); }
+.theme-klasyczny .camhint { text-align: center; font-size: .9rem; }
+.theme-roz .stick.pinned { box-shadow: none; border-bottom: 0; }
+.theme-roz .camera-actions { display: grid; grid-template-columns: 2fr 1fr; gap: 9px; padding-top: 4px; }
+.theme-roz .camera-actions button { min-height: 48px; padding: 10px 12px; font-size: 15px; white-space: nowrap; }
+.theme-roz .stick.pinned { border-radius: 0; }
+/* Telefon poziomo: mniej nagłówka, większy podgląd */
+@media (orientation: landscape) and (max-height: 520px) {
+  .app-home .app-intro { display: none; }
+  .app-home .app-brand { height: 52px; }
+  .app-home .camera-heading { margin-top: 12px; }
+  .cam { width: min(100%, calc(66vh * var(--box-ar, 1.333))); }
+}
+/* Różowy: zwarty układ, żeby na telefonie przyciski i porównanie mieściły się bez przewijania */
+.theme-roz .app-brand { height: 60px; }
+.theme-roz .app-intro { padding: 22px 0 16px; }
+.theme-roz .app-intro h1 { font-size: clamp(28px, 7vw, 44px); margin: 6px 0; }
+.theme-roz .cmpl { padding: 12px 16px; }

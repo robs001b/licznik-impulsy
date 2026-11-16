@@ -38,6 +38,22 @@
 
   /* ---------- ROI ---------- */
   function vAspect() { return (video.videoWidth || 4) / (video.videoHeight || 3); }
+  /* ---------- podgląd: object-fit cover (przycięcie), współrzędne w klatce analizowanej ---------- */
+  var WD = window.LicznikWidok, pan = { px: 0.5, py: 0.5 };
+  function boxAr() { return Math.max(4 / 3, vAspect()); } // pionowy obraz -> ramka 4:3 na całą szerokość, przycięta góra/dół
+  function setBox() { var c = $('cam'); c.style.setProperty('--box-ar', boxAr().toFixed(4)); c.style.setProperty('--ar', vAspect().toFixed(4)); }
+  function view(bw, bh) { return WD.cover(bw, bh, video.videoWidth, video.videoHeight, pan.px, pan.py); }
+  function applyPan() { video.style.objectPosition = (pan.px * 100).toFixed(3) + '% ' + (pan.py * 100).toFixed(3) + '%'; }
+  // gdy obszary diod wychodzą poza widoczny fragment, przesuń kadr (nie w trakcie przeciągania)
+  function autoPan() {
+    if (drag || !video.videoWidth) return;
+    var bw = overlay.clientWidth, bh = overlay.clientHeight; if (!bw || !bh) return;
+    var R = rois(), b = { x0: 1, y0: 1, x1: 0, y1: 0 };
+    R.forEach(function (r) { b.x0 = Math.min(b.x0, r.x - r.w); b.x1 = Math.max(b.x1, r.x + r.w); b.y0 = Math.min(b.y0, r.y - r.h); b.y1 = Math.max(b.y1, r.y + r.h); });
+    if (WD.fits(view(bw, bh), b, 0.04)) return;
+    var np = WD.panFor(bw, bh, video.videoWidth, video.videoHeight, (b.x0 + b.x1) / 2, (b.y0 + b.y1) / 2);
+    if (Math.abs(np.px - pan.px) > 1e-3 || Math.abs(np.py - pan.py) > 1e-3) { pan = np; applyPan(); }
+  }
   function defaultRois() {
     var a = vAspect(), w = 0.045;
     return [{ x: 0.42, y: 0.5, w: w, h: w * a }, { x: 0.58, y: 0.5, w: w, h: w * a }];
@@ -265,7 +281,7 @@
     video.srcObject = s;
     try { await video.play(); } catch (e) {}
     await new Promise(function (res) { if (video.videoWidth) res(); else video.onloadedmetadata = function () { res(); }; setTimeout(res, 3000); });
-    $('cam').style.setProperty('--ar', vAspect().toFixed(4));
+    setBox(); pan = { px: 0.5, py: 0.5 }; applyPan();
     $('camHint').style.display = 'none';
     parseRoiParams();
     resetMeasure();
@@ -290,7 +306,7 @@
   async function requestWake() {
     try { if ('wakeLock' in navigator && running) { wakeLock = await navigator.wakeLock.request('screen'); } } catch (e) {}
   }
-  video.addEventListener('resize', function () { if (video.videoWidth) $('cam').style.setProperty('--ar', vAspect().toFixed(4)); });
+  video.addEventListener('resize', function () { if (video.videoWidth) setBox(); });
   document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible' && running) requestWake(); });
 
   function resetMeasure() {
@@ -403,7 +419,7 @@
 
   /* ---------- dotyk na podglądzie ---------- */
   var drag = null;
-  function pos(e) { var r = overlay.getBoundingClientRect(); return { x: (e.clientX - r.left) / r.width, y: (e.clientY - r.top) / r.height }; }
+  function pos(e) { var r = overlay.getBoundingClientRect(); return WD.toVideo(view(r.width, r.height), e.clientX - r.left, e.clientY - r.top); }
   function hit(p) {
     var R = rois();
     for (var k = 0; k < 2; k++) { var i = (active + k) % 2, r = R[i]; if (Math.abs(p.x - r.x) <= r.w * 0.8 && Math.abs(p.y - r.y) <= r.h * 0.8) return i; }
@@ -483,8 +499,11 @@
   }
   function drawOverlay() {
     var dpr = fitCanvas(overlay), W = overlay.width, H = overlay.height;
-    octx.clearRect(0, 0, W, H);
+    octx.setTransform(1, 0, 0, 1, 0, 0); octx.clearRect(0, 0, W, H);
     if (!running) return;
+    autoPan();
+    // rysujemy we współrzędnych klatki: przesunięcie przycięcia + skala widocznego obrazu (cover)
+    var v = view(W, H); octx.setTransform(1, 0, 0, 1, v.ox, v.oy); W = v.dw; H = v.dh;
     var R = rois();
     for (var i = 0; i < 2; i++) {
       var r = R[i], x = (r.x - r.w / 2) * W, y = (r.y - r.h / 2) * H, w = r.w * W, h = r.h * H;
@@ -788,5 +807,5 @@
     });
   })();
   showSaved();
-  window.__licznik = { rq: RQ, rqLog: function () { return rqLog; }, rqText: rqText, records: function () { return records; }, calc: calc, det: det, rois: rois, fps: function () { return fps; } };
+  window.__licznik = { rq: RQ, rqLog: function () { return rqLog; }, rqText: rqText, records: function () { return records; }, calc: calc, det: det, rois: rois, view: function () { var r = overlay.getBoundingClientRect(); return view(r.width, r.height); }, pan: function () { return pan; }, fps: function () { return fps; } };
 })();
