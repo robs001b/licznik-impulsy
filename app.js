@@ -285,7 +285,7 @@
     $('camHint').style.display = 'none';
     parseRoiParams();
     resetMeasure();
-    running = true; lastFrameT = 0;
+    running = true; lastFrameT = 0; if (window.__applyPin) window.__applyPin();
     $('btnStop').disabled = false;
     loopGen++;
     if (hasRVFC) video.requestVideoFrameCallback(onVideoFrame.bind(loopGen)); else requestAnimationFrame(onRaf.bind(loopGen));
@@ -301,6 +301,7 @@
     video.srcObject = null;
     $('btnStop').disabled = true; $('simPanel').hidden = true;
     $('camHint').style.display = '';
+    if (window.__applyPin) window.__applyPin();
     if (wakeLock) { try { wakeLock.release(); } catch (e) {} wakeLock = null; }
   }
   async function requestWake() {
@@ -742,7 +743,12 @@
   // przypięcie podglądu z wynikami (sticky); domyślnie włączone
   if (cfg.pin == null) cfg.pin = true;
   $('pin').checked = cfg.pin;
-  var applyPin = function () { $('stick').classList.toggle('pinned', !!cfg.pin); document.documentElement.style.setProperty('--camh', cfg.pin ? '38vh' : '42vh'); };
+  // przypinanie tylko przy działającym obrazie - przed startem kamery karta podglądu nie może zasłaniać przycisków
+  var applyPin = function () { var on = !!cfg.pin && running; $('stick').classList.toggle('pinned', on); if (!on) $('stick').classList.remove('stuck'); document.documentElement.style.setProperty('--camh', cfg.pin ? '38vh' : '42vh'); };
+  // cień przypiętej karty tylko wtedy, gdy faktycznie przykleiła się do góry ekranu (w zwykłym układzie bez cienia na przyciskach)
+  var markStuck = function () { var st = $('stick'); st.classList.toggle('stuck', st.classList.contains('pinned') && st.getBoundingClientRect().top <= 0.5 && window.scrollY > 0); };
+  window.addEventListener('scroll', markStuck, { passive: true }); window.addEventListener('resize', markStuck);
+  window.__applyPin = function () { applyPin(); markStuck(); };
   $('pin').addEventListener('change', function (e) { cfg.pin = e.target.checked; save(); applyPin(); }); applyPin();
   $('reacq').checked = cfg.reacq !== false;
   $('reacq').addEventListener('change', function (e) { cfg.reacq = e.target.checked; RQ.reset(); save(); });

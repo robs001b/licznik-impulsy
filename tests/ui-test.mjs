@@ -1,7 +1,7 @@
 // Test UI w Chrome (widok telefonu): symulacja + fałszywa kamera z filmu. node tests/ui-test.mjs <baseUrl> <outDir> [y4m]
 import { chromium } from 'playwright-core';
 import fs from 'node:fs';
-import { layoutChecks } from './layout-test.mjs';
+import { layoutChecks, actionsGapChecks } from './layout-test.mjs';
 const [, , base = 'http://localhost:8765/', out = '../zrzuty', y4m] = process.argv;
 fs.mkdirSync(out, { recursive: true });
 let fail = 0;
@@ -258,6 +258,7 @@ check('auto-eksport: brak błędów JS', e4.length === 0, e4.join(' | '));
 await b4.close();
 
 // 6c) układ na telefonach (iPhone SE/15/Pro Max/Duo, Galaxy Z Flip6): bez nakładania i poziomego przewijania
+await actionsGapChecks(base, check);
 await layoutChecks(base, out, check);
 
 // 7) strona porównania z eLicznikiem Tauron (sztuczne dane przykładowe)

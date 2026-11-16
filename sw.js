@@ -1,5 +1,5 @@
-const CACHE = 'licznik-impulsy-v12';
-const FILES = ['./', 'index.html', 'style.css', 'style.css?v=12', 'theme.js', 'theme.js?v=12', 'detector.js', 'widok.js', 'sim.js', 'app.js','compare.js','porownanie.html','porownanie.js', 'manifest.webmanifest', 'icon.svg', 'icon-192.png', 'icon-512.png'];
+const CACHE = 'licznik-impulsy-v13';
+const FILES = ['./', 'index.html', 'style.css', 'style.css?v=13', 'theme.js', 'theme.js?v=13', 'detector.js', 'widok.js', 'sim.js', 'app.js','compare.js','porownanie.html','porownanie.js', 'manifest.webmanifest', 'icon.svg', 'icon-192.png', 'icon-512.png'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES))); self.skipWaiting(); });
 self.addEventListener('activate', e => { e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k))))); self.clients.claim(); });
 // sieć najpierw (świeże wersje), cache gdy brak zasięgu

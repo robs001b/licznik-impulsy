@@ -62,9 +62,43 @@ export async function layoutChecks(base, out, check, devices = DEVICES) {
   await b.close();
 }
 
+// Wiersz przycisków Uruchom kamerę / Zatrzymaj nie może nachodzić na kartę podglądu (z P/Q i cos φ):
+// wszystkie motywy, przed i po uruchomieniu obrazu, telefony pionowo i poziomo. W zwykłym przepływie odstęp >= 10 px.
+export const GAP_DEVICES = [['360x800', 360, 800], ['375x667', 375, 667], ['390x844', 390, 844], ['412x915', 412, 915], ['430x932', 430, 932],
+  ['Z Flip6 zewn. 360x374', 360, 374], ['poziomo 844x390', 844, 390], ['poziomo 915x412', 915, 412]];
+export async function actionsGapChecks(base, check, devices = GAP_DEVICES) {
+  const b = await chromium.launch({ executablePath: '/usr/bin/google-chrome', headless: true });
+  for (const theme of ['roz', 'tauron', 'klasyczny']) for (const [name, w, h] of devices) {
+    const bad = [];
+    for (const [state, url] of [['przed kamerą', ''], ['obraz działa', '?sim=1&P=5&Q=1.5&track=0']]) {
+      const c = await b.newContext({ viewport: { width: w, height: h }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+      await c.addInitScript(t => localStorage.setItem('licznik-impulsy-motyw', t), theme);
+      const p = await c.newPage();
+      await p.goto(base + url); await p.waitForTimeout(url ? 1500 : 500);
+      // przed kamerą karta nie jest przypięta, więc przyciski nie mogą wejść pod nią przy żadnym przewinięciu
+      for (const y of url ? [0] : [0, 150, 300, 500]) {
+        await p.evaluate(y => window.scrollTo(0, y), y); await p.waitForTimeout(120);
+        const r = await p.evaluate(() => {
+          const s = document.getElementById('stick').getBoundingClientRect(), a = document.querySelector('.camera-actions').getBoundingClientRect();
+          const inter = !(a.bottom <= s.top || a.top >= s.bottom || a.right <= s.left || a.left >= s.right);
+          return { inter, gap: Math.round((a.top - s.bottom) * 10) / 10, th: document.body.dataset.theme, sy: Math.round(scrollY) };
+        });
+        if (r.th !== theme) bad.push(state + ': motyw ' + r.th);
+        if (r.inter) bad.push(`${state}, przewinięcie ${r.sy}: przyciski nachodzą na kartę (odstęp ${r.gap} px)`);
+        else if (y === 0 && r.gap < 10) bad.push(`${state}: odstęp ${r.gap} px < 10`);
+      }
+      await c.close();
+    }
+    check(`przyciski kamery pod kartą podglądu: motyw ${theme}, ${name}`, !bad.length, bad.join('; '));
+  }
+  await b.close();
+}
+
 if (import.meta.url === pathToFileURL(process.argv[1]).href) {
   const [, , base = 'http://localhost:8765/', out = '../zrzuty'] = process.argv;
   let fail = 0;
-  await layoutChecks(base, out, (n, c, i) => { console.log((c ? 'OK   ' : 'BŁĄD ') + n + (i ? ' - ' + i : '')); if (!c) fail++; });
+  const ck = (n, c, i) => { console.log((c ? 'OK   ' : 'BŁĄD ') + n + (i ? ' - ' + i : '')); if (!c) fail++; };
+  await actionsGapChecks(base, ck);
+  await layoutChecks(base, out, ck);
   console.log(fail ? fail + ' błędów' : 'UKŁAD: wszystko OK'); process.exit(fail ? 1 : 0);
 }
