@@ -135,3 +135,79 @@ details.sec select{width:auto}
 @media (prefers-color-scheme: light){.support{border-color:#3a4554}}
 .rbsum{color:var(--tx)}
 @media (max-height:520px){.stick.pinned{position:relative;top:auto;box-shadow:none;border-bottom:0;border-radius:14px}}
+
+
+/* Odświeżony wygląd aplikacji */
+:root {
+  --bg: #0a1016;
+  --pn: #121e28;
+  --pn2: #1a2a36;
+  --tx: #eef5f4;
+  --mu: #a8b9bd;
+  --k0: #54d4bb;
+  --k1: #f2bf70;
+  --ac: #4cd5b4;
+}
+html, body {
+  background: radial-gradient(ellipse at 50% 0, #193541 0, #0a1016 46%);
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  line-height: 1.5;
+}
+header { max-width: 720px; margin: 0 auto; padding: 28px 16px 14px; }
+h1 { font-size: clamp(1.55rem, 5vw, 2.05rem); letter-spacing: -.035em; line-height: 1.15; }
+.sub { margin-top: 6px; font-size: .88rem; }
+main { padding: 0 12px 16px; }
+button, select, input[type=number] {
+  border: 1px solid #344b57;
+  border-radius: 12px;
+  background: #1b2c37;
+  font: inherit;
+}
+button { font-weight: 650; cursor: pointer; transition: background .15s, border-color .15s; }
+button:hover:not(:disabled) { background: #294250; }
+button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, summary:focus-visible {
+  outline: 3px solid #7cebd0;
+  outline-offset: 3px;
+}
+button.primary { background: var(--ac); border-color: var(--ac); color: #08221c; }
+button.primary:hover:not(:disabled) { background: #82ead0; }
+.status { padding: 4px 3px 10px; font-size: .85rem; }
+.stick, .camwrap, details.sec {
+  background: rgba(18,30,40,.97);
+  border: 1px solid #263b46;
+  border-radius: 18px;
+}
+.stick { padding: 10px; box-shadow: 0 16px 35px #0003; }
+.cam { border-radius: 12px; background: #070b0e; border: 1px solid #273942; }
+.camhint { color: #a8b9bd; }
+.resbar { gap: 8px; margin-top: 10px; }
+.rb { background: #0d1921; border: 1px solid #2b424b; border-top: 3px solid var(--k0); border-radius: 12px; padding: 12px; min-width: 0; }
+.rb.k0b { border-left: 1px solid #2b424b; border-top-color: var(--k0); }
+.rb.k1b { border-left: 1px solid #2b424b; border-top-color: var(--k1); }
+.rbv { font-size: clamp(1.45rem, 6vw, 2rem); gap: 5px; }
+.rbl { color: var(--tx); font-size: .85rem; }
+.rbs { margin-top: 3px; font-size: .76rem; }
+.rbsum { margin-top: 9px; padding-top: 8px; border-top: 1px solid #2a4049; }
+.rbfoot { padding: 5px 3px 1px; }
+.stick + .camwrap { margin-top: 10px; padding: 12px; }
+.bar.top { gap: 8px; }
+button.find { background: #254e48; border-color: #376c60; color: #b6f4e2; }
+button.find:hover:not(:disabled) { background: #32675a; }
+.cmpl { margin: 13px 2px 3px; line-height: 1.5; }
+a { color: #89e4d0; }
+.cmpl .mu { display: block; margin-top: 3px; }
+details.sec { margin: 10px 0; padding: 13px 15px; }
+details.sec > summary { padding: 3px 0; font-size: .98rem; }
+details.sec[open] > summary { margin-bottom: 14px; }
+.sigc, .chartc { background: #0a151c; border: 1px solid #253943; border-radius: 10px; }
+.sig { margin-bottom: 16px; }
+.sighead { margin-bottom: 8px; font-weight: 650; }
+.card, .panel { background: #172630; }
+.support { border-color: #3e5148; background: linear-gradient(130deg, #253831, #172630); }
+footer { padding-top: 22px; }
+@media (max-width: 380px) {
+  header { padding-top: 20px; }
+  .rb { padding: 9px 7px; }
+  .rbv { font-size: 1.4rem; }
+  .rbs { font-size: .7rem; }
+}
